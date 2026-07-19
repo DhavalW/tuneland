@@ -1,0 +1,61 @@
+# Keeps this world's code up to date with the main Tuneland repo.
+#
+# Runs daily. If DhavalW/tuneland changed, this copies the new code over
+# this repo (keeping wrangler.jsonc, which holds this world's own Cloudflare
+# resource IDs, and this workflows folder, which GitHub tokens cannot push).
+# The push triggers Cloudflare Workers Builds, which redeploys the world.
+# All world state lives in Cloudflare (D1 + R2), never in this repo, so the
+# overwrite is always safe. Artists never need to touch this.
+
+name: Tuneland auto-update
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out this world
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Fetch the latest Tuneland
+        run: |
+          git clone --depth 1 https://github.com/DhavalW/tuneland /tmp/upstream
+          rm -rf /tmp/upstream/.git
+
+      - name: Overlay the update (keep wrangler.jsonc and workflows)
+        run: |
+          rsync -a --delete \
+            --exclude '.git' \
+            --exclude '.github/workflows' \
+            --exclude 'wrangler.jsonc' \
+            /tmp/upstream/ ./
+
+      - name: Commit and push if something changed
+        run: |
+          git config user.name 'tuneland-updater'
+          git config user.email 'tuneland-updater@users.noreply.github.com'
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "Update world code from tuneland upstream"
+            git push
+          else
+            # keepalive: a tiny commit every ~50 quiet days so GitHub never
+            # disables this schedule
+            last=$(git log -1 --format=%ct)
+            now=$(date +%s)
+            if [ $(( (now - last) / 86400 )) -ge 50 ]; then
+              date -u +%Y-%m-%dT%H:%M:%SZ > .tuneland-keepalive
+              git add .tuneland-keepalive
+              git commit -m "Keep the auto-updater awake"
+              git push
+            fi
+          fi

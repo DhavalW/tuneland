@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+  <title>Tuneland world</title>
+  <meta name="description" content="A voxel world built by an artist for their fans. Walk it, fly it, dig up buried loot while the music plays, and cross into linked worlds next door. Free, in your browser, made for phones." />
+  <meta name="robots" content="index, follow" />
+  <meta name="theme-color" content="#171226" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23171226'/%3E%3Crect x='4' y='18' width='6' height='6' fill='%23f2a33c'/%3E%3Crect x='13' y='12' width='6' height='6' fill='%2345b8a4'/%3E%3Crect x='22' y='20' width='6' height='6' fill='%23e2603f'/%3E%3Ccircle cx='24' cy='7' r='2.4' fill='%23f2a33c'/%3E%3Cpath d='M26.2 7 L26.2 2.4 L29 3.2' stroke='%23f2a33c' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Come wander my Tuneland world" />
+  <meta property="og:description" content="A voxel world built from my music. Walk it, fly it, dig up buried loot, and cross into the worlds next door." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --void: #171226; --panel: #251f3a; --panel-2: #2f2647;
+      --acid: #f2a33c; --acid-dim: rgba(242,163,60,0.55);
+      --ice: #45b8a4; --coral: #e2603f; --bone: #f2ead8;
+      --bone-70: rgba(242,234,216,0.72); --bone-45: rgba(242,234,216,0.45);
+      --bone-25: rgba(242,234,216,0.25); --line: rgba(242,234,216,0.14);
+      --disp: 'Bricolage Grotesque', system-ui, sans-serif;
+      --mono: 'Space Mono', ui-monospace, monospace;
+      --safe-b: env(safe-area-inset-bottom, 0px);
+      --safe-t: env(safe-area-inset-top, 0px);
+    }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      background: radial-gradient(rgba(242,163,60,0.035) 1px, transparent 1.3px), linear-gradient(180deg, #171226 0%, #241a38 60%, #33234a 100%);
+      background-size: 26px 26px, auto;
+      background-attachment: fixed;
+      color: var(--bone); font-family: var(--mono); line-height: 1.55;
+      -webkit-font-smoothing: antialiased; overflow-x: hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
+    a { color: inherit; }
+    button { font-family: inherit; color: inherit; background: none; border: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    input { font-family: inherit; }
+    ::selection { background: var(--acid); color: var(--void); }
+
+    .btn-primary {
+      display: flex; align-items: center; justify-content: center; gap: 0.7rem;
+      width: 100%; min-height: 56px; padding: 0.9rem 1.4rem;
+      font-weight: 700; font-size: 0.8rem; letter-spacing: 0.16em; text-transform: uppercase;
+      color: var(--void); background: var(--acid); border-radius: 14px; text-decoration: none;
+      box-shadow: 0 0 0 1px rgba(242,163,60,0.4), 0 6px 30px rgba(242,163,60,0.22);
+      transition: transform 0.12s ease, filter 0.2s ease; touch-action: manipulation;
+    }
+    .btn-primary:active { transform: scale(0.97); }
+    .btn-ghost {
+      display: flex; align-items: center; justify-content: center; gap: 0.6rem;
+      width: 100%; min-height: 48px; padding: 0.8rem 1.2rem;
+      font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--bone-70); border: 1px solid var(--line); border-radius: 14px; text-decoration: none;
+      background: rgba(23,18,38,0.45); transition: border-color 0.2s ease, transform 0.12s ease;
+      touch-action: manipulation;
+    }
+    .btn-ghost:active { transform: scale(0.97); }
+    .btn-ghost:hover, .btn-primary:hover { filter: brightness(1.06); }
+    .chip {
+      display: inline-flex; align-items: center; gap: 0.45rem;
+      font-size: 0.62rem; letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--bone-45); border: 1px solid var(--line); padding: 0.32rem 0.75rem; border-radius: 999px;
+      background: rgba(23,18,38,0.55);
+    }
+    .chip .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--acid); box-shadow: 0 0 8px var(--acid); }
+
+    #menuBg { position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.85; }
+    .vignette {
+      position: fixed; inset: 0; z-index: 2; pointer-events: none;
+      background: radial-gradient(120% 100% at 50% 40%, transparent 55%, rgba(10,7,16,0.6) 100%);
+    }
+    body.playing #menuBg, body.playing .vignette { display: none; }
+    .world-pitch { margin-top: 1rem; font-size: 0.8rem; color: var(--bone); max-width: 40ch; line-height: 1.8; text-shadow: 0 2px 14px rgba(12,8,20,0.9); }
+    .stat-row { display: flex; gap: 0.5rem; margin-top: 1.2rem; flex-wrap: wrap; }
+    .prose {
+      position: relative; z-index: 5;
+      max-width: 640px; margin: 0 auto; padding: 3rem 1.5rem;
+      border-top: 1px solid var(--line);
+      background: rgba(22,17,35,0.55);
+    }
+    .prose h2 { font-family: var(--disp); font-weight: 700; font-size: clamp(1.4rem, 5vw, 2rem); letter-spacing: -0.02em; margin-bottom: 1rem; }
+    .prose h2 em { font-style: normal; color: var(--acid); }
+    .prose p { font-size: 0.78rem; color: var(--bone-70); line-height: 1.9; margin-bottom: 1rem; max-width: 62ch; }
+    .prose p b { color: var(--bone); }
+    details.faq { border: 1px solid var(--line); border-radius: 12px; margin-bottom: 0.6rem; background: rgba(37,31,58,0.6); }
+    details.faq summary { cursor: pointer; padding: 0.9rem 1.1rem; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+    details.faq summary::-webkit-details-marker { display: none; }
+    details.faq summary::after { content: '+'; color: var(--acid); flex-shrink: 0; }
+    details.faq[open] summary::after { content: '−'; }
+    details.faq p { padding: 0 1.1rem 1rem; margin: 0; font-size: 0.74rem; color: var(--bone-70); line-height: 1.8; }
+
+    /* ── menu ── */
+    .hero { max-width: 640px; margin: 0 auto; padding: calc(2rem + var(--safe-t)) 1.5rem 3rem; position: relative; z-index: 5; }
+    .site-foot { position: relative; z-index: 5; }
+    .eyebrow { display: flex; align-items: center; gap: 0.7rem; font-size: 0.62rem; letter-spacing: 0.28em; text-transform: uppercase; color: var(--acid-dim); }
+    .eyebrow::before { content: ''; width: 26px; height: 2px; background: repeating-linear-gradient(90deg, var(--acid-dim) 0 4px, transparent 4px 8px); }
+    h1.world-title {
+      font-family: var(--disp); font-weight: 800;
+      font-size: clamp(2.4rem, 11vw, 4.6rem); line-height: 0.95; letter-spacing: -0.03em;
+      margin: 0.9rem 0 0; text-transform: uppercase; overflow-wrap: break-word;
+    }
+    .world-artist { margin-top: 0.7rem; font-size: 0.8rem; color: var(--ice); }
+    .world-bio { margin-top: 0.9rem; font-size: 0.76rem; color: var(--bone-70); max-width: 44ch; line-height: 1.8; }
+    .menu-ctas { max-width: 380px; margin-top: 1.8rem; display: flex; flex-direction: column; gap: 0.6rem; }
+    .fan-row { margin-top: 1.6rem; max-width: 380px; }
+    .fan-label { font-size: 0.6rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--bone-45); margin-bottom: 0.5rem; }
+    .fan-input {
+      width: 100%; min-height: 48px; padding: 0.7rem 1rem; font-size: 0.85rem; color: var(--bone);
+      background: rgba(23,18,38,0.6); border: 1px solid var(--line); border-radius: 12px; outline: none;
+    }
+    .fan-input:focus { border-color: var(--acid-dim); }
+    .friend-box { margin-top: 1.2rem; max-width: 380px; border: 1px solid var(--line); border-radius: 14px; padding: 0.9rem 1rem; background: rgba(37,31,58,0.5); }
+    .friend-box .fb-t { font-size: 0.6rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--bone-45); margin-bottom: 0.5rem; }
+    .friend-code { font-size: 0.72rem; color: var(--ice); word-break: break-all; }
+    .friend-list { margin-top: 0.5rem; font-size: 0.68rem; color: var(--bone-70); }
+    .friend-add-row { display: flex; gap: 0.4rem; margin-top: 0.6rem; }
+    .friend-add-row input { flex: 1; min-width: 0; min-height: 42px; padding: 0.5rem 0.8rem; font-size: 0.72rem; color: var(--bone); background: rgba(23,18,38,0.6); border: 1px solid var(--line); border-radius: 10px; outline: none; }
+    .friend-add-row button { min-height: 42px; padding: 0 1rem; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--line); font-size: 0.62rem; letter-spacing: 0.12em; text-transform: uppercase; }
+    .how-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.6rem; margin-top: 2.2rem; max-width: 560px; list-style: none; }
+    .how-strip li { border: 1px solid var(--line); border-radius: 12px; padding: 0.9rem; background: rgba(37,31,58,0.6); }
+    .how-strip .g { font-size: 1.3rem; display: block; margin-bottom: 0.4rem; }
+    .how-strip b { display: block; font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.25rem; }
+    .how-strip span { font-size: 0.66rem; color: var(--bone-45); line-height: 1.5; display: block; }
+    .neighbors { margin-top: 2rem; max-width: 560px; }
+    .neighbors .fb-t { font-size: 0.6rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--bone-45); margin-bottom: 0.6rem; }
+    .nb-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .nb-row a { font-size: 0.68rem; color: var(--ice); text-decoration: none; border: 1px solid var(--line); border-radius: 999px; padding: 0.4rem 0.9rem; }
+    .site-foot {
+      max-width: 640px; margin: 0 auto; padding: 2rem 1.5rem calc(2.5rem + var(--safe-b));
+      border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 0.4rem 1.4rem;
+      font-size: 0.6rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--bone-25);
+    }
+    .site-foot a { text-decoration: none; color: var(--bone-45); }
+    .site-foot a:hover { color: var(--bone); }
+
+    .race-card {
+      margin-top: 1rem; max-width: 380px;
+      border: 1px solid rgba(69,184,164,0.45); border-radius: 14px;
+      background: rgba(69,184,164,0.08); padding: 1rem 1.1rem;
+    }
+    .rc-eyebrow { font-size: 0.6rem; letter-spacing: 0.24em; text-transform: uppercase; color: var(--ice); margin-bottom: 0.4rem; }
+    .rc-line { font-size: 0.76rem; color: var(--bone); line-height: 1.7; margin-bottom: 0.9rem; }
+    .lb-list { list-style: none; counter-reset: lb; }
+    .lb-list li { counter-increment: lb; font-size: 0.72rem; color: var(--bone-70); padding: 0.3rem 0; border-bottom: 1px solid var(--line); display: flex; gap: 0.6rem; }
+    .lb-list li::before { content: counter(lb); color: var(--acid); min-width: 1.2rem; }
+    .lb-list li b { color: var(--bone); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pass-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin-top: 0.8rem; }
+    .pass-grid .pg { border: 1px solid var(--line); border-radius: 10px; padding: 0.6rem; background: rgba(23,18,38,0.4); }
+    .pass-grid .pg b { display: block; font-family: var(--disp); font-size: 1.3rem; color: var(--acid); }
+    .pass-grid .pg span { font-size: 0.56rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--bone-45); }
+    .pass-sub { font-size: 0.62rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--bone-45); margin-top: 0.8rem; }
+    .pass-finds { max-height: 160px; overflow-y: auto; margin-top: 0.4rem; }
+    .pass-finds .pf { font-size: 0.68rem; color: var(--bone-70); padding: 0.25rem 0; border-bottom: 1px solid var(--line); }
+    .pass-finds .pf i { font-style: normal; color: var(--ice); }
+
+    /* ── game layer ── */
+    #game { position: fixed; inset: 0; z-index: 20; display: none; background: #0e0b18; }
+    #game.on { display: block; }
+    #gl { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; display: block; }
+    body.playing main, body.playing footer, body.playing section.prose { display: none; }
+
+    .hud-top {
+      position: absolute; top: 0; left: 0; right: 0; z-index: 5;
+      display: flex; align-items: center; gap: 0.6rem;
+      padding: calc(0.7rem + var(--safe-t)) 1rem 0.5rem; pointer-events: none;
+    }
+    .hud-top > * { pointer-events: auto; }
+    .hud-btn {
+      font-size: 0.58rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--bone);
+      background: rgba(20,15,30,0.55); border: 1px solid var(--line); border-radius: 999px; padding: 0.5rem 0.8rem;
+    }
+    .hud-btn.lit { background: rgba(242,163,60,0.85); color: var(--void); border-color: transparent; }
+    .hud-where { flex: 1; min-width: 0; pointer-events: none; text-shadow: 0 1px 6px rgba(0,0,0,0.8); }
+    .hud-where .hw-world { font-size: 0.66rem; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .hud-where .hw-area { font-size: 0.55rem; color: var(--bone-70); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .area-banner {
+      position: absolute; top: calc(4.6rem + var(--safe-t)); left: 50%; transform: translateX(-50%);
+      z-index: 5; pointer-events: none; text-align: center;
+      font-family: var(--disp); font-weight: 800; font-size: clamp(1.1rem, 5vw, 1.8rem);
+      text-transform: uppercase; letter-spacing: 0.04em; color: #fff;
+      text-shadow: 0 2px 20px rgba(0,0,0,0.8); opacity: 0; transition: opacity 0.6s ease;
+      max-width: 90vw;
+    }
+    .area-banner.on { opacity: 1; }
+    .area-banner small { display: block; font-family: var(--mono); font-weight: 400; font-size: 0.58rem; letter-spacing: 0.22em; color: var(--bone-70); margin-top: 0.2rem; }
+
+    .hint-toast {
+      position: absolute; left: 50%; bottom: calc(7.6rem + var(--safe-b)); transform: translateX(-50%);
+      z-index: 6; pointer-events: none; white-space: nowrap; max-width: 92vw; overflow: hidden; text-overflow: ellipsis;
+      font-size: 0.6rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--bone);
+      background: rgba(20,15,30,0.65); border: 1px solid var(--line); border-radius: 999px; padding: 0.55rem 1.1rem;
+      opacity: 0; transition: opacity 0.5s ease;
+    }
+    .hint-toast.on { opacity: 1; }
+
+    /* radar */
+    #radarWrap {
+      position: absolute; right: 1rem; bottom: calc(7.4rem + var(--safe-b)); z-index: 5;
+      width: 108px; height: 108px; pointer-events: none;
+      opacity: 0; transform: scale(0.7); transition: opacity 0.35s ease, transform 0.35s ease;
+    }
+    #radarWrap.on { opacity: 1; transform: scale(1); }
+    #radar { width: 108px; height: 108px; }
+
+    /* touch controls */
+    .joy {
+      position: absolute; z-index: 5; pointer-events: none; opacity: 0;
+      width: 96px; height: 96px; border-radius: 50%;
+      border: 1.5px solid rgba(242,234,216,0.35); background: rgba(23,18,38,0.25);
+    }
+    .joy .knob { position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; margin: -20px; border-radius: 50%; background: rgba(242,234,216,0.45); }
+    .tbtns {
+      position: absolute; right: 1rem; bottom: calc(1.2rem + var(--safe-b)); z-index: 5;
+      display: flex; flex-direction: column; gap: 0.55rem; align-items: flex-end;
+    }
+    .tbtn {
+      width: 58px; height: 58px; border-radius: 50%;
+      background: rgba(23,18,38,0.5); border: 1.5px solid rgba(242,234,216,0.3);
+      color: var(--bone); font-size: 1.15rem; touch-action: manipulation;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .tbtn:active { background: rgba(242,163,60,0.35); }
+    .tbtn.hide { display: none; }
+    @media (hover: hover) and (pointer: fine) { .tbtns { display: none; } }
+
+    .kbd-help {
+      position: absolute; left: 1rem; bottom: calc(1rem + var(--safe-b)); z-index: 5; pointer-events: none;
+      font-size: 0.56rem; letter-spacing: 0.1em; color: var(--bone-25); line-height: 1.9; text-transform: uppercase;
+    }
+    @media (hover: none) { .kbd-help { display: none; } }
+
+    .crash-flash { position: absolute; inset: 0; z-index: 4; pointer-events: none; background: radial-gradient(80% 70% at 50% 60%, rgba(226,96,63,0.35), transparent 70%); opacity: 0; }
+    .crash-flash.go { animation: bflash 0.5s ease; }
+    .beat-flash { position: absolute; inset: 0; z-index: 4; pointer-events: none; background: radial-gradient(70% 60% at 50% 45%, rgba(255,255,255,0.16), transparent 70%); opacity: 0; }
+    .beat-flash.go { animation: bflash 0.5s ease; }
+    @keyframes bflash { 15% { opacity: 1; } 100% { opacity: 0; } }
+
+    /* overlays */
+    .veil {
+      position: fixed; inset: 0; z-index: 45; display: none;
+      flex-direction: column; align-items: center; justify-content: center; text-align: center;
+      background: rgba(14,10,22,0.92); padding: 2rem;
+    }
+    .veil.on { display: flex; }
+    .veil .v-title { font-family: var(--disp); font-weight: 800; font-size: clamp(1.5rem, 6vw, 2.2rem); letter-spacing: -0.02em; text-transform: uppercase; }
+    .veil .v-sub { font-size: 0.7rem; color: var(--bone-45); margin-top: 0.6rem; max-width: 36ch; line-height: 1.8; }
+    .veil .v-step { font-size: 0.62rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--acid-dim); margin-top: 1.6rem; min-height: 1.4em; animation: hb 1.6s ease-in-out infinite; }
+    @keyframes hb { 50% { opacity: 0.35; } }
+    .veil .v-ctas { width: 100%; max-width: 340px; margin-top: 1.8rem; display: flex; flex-direction: column; gap: 0.6rem; }
+
+    /* loot modal */
+    .loot-modal {
+      position: fixed; inset: 0; z-index: 50; display: none;
+      align-items: flex-start; justify-content: center; padding: 1.5rem;
+      background: rgba(14,10,22,0.8); overflow-y: auto;
+    }
+    .loot-modal.on { display: flex; }
+    .loot-card {
+      width: 100%; max-width: 380px; border: 1px solid rgba(242,163,60,0.5); border-radius: 18px;
+      background: var(--panel); padding: 1.4rem; text-align: center;
+      box-shadow: 0 0 60px rgba(242,163,60,0.2);
+      margin: auto 0; max-height: none;
+    }
+    #shotImg { max-height: 42vh; object-fit: contain; background: #0e0b18; }
+    .loot-card .lc-eyebrow { font-size: 0.6rem; letter-spacing: 0.3em; text-transform: uppercase; color: var(--acid-dim); }
+    .loot-card .lc-title { font-family: var(--disp); font-weight: 800; font-size: 1.5rem; margin-top: 0.5rem; text-transform: uppercase; overflow-wrap: break-word; }
+    .loot-card .lc-msg { font-size: 0.76rem; color: var(--bone-70); margin-top: 0.7rem; line-height: 1.7; overflow-wrap: break-word; }
+    .loot-card .lc-code {
+      margin-top: 0.9rem; font-size: 1rem; font-weight: 700; color: var(--acid);
+      border: 1px dashed var(--acid-dim); border-radius: 10px; padding: 0.6rem; user-select: all; overflow-wrap: break-word;
+    }
+    .loot-card .lc-remaining { font-size: 0.58rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--bone-45); margin-top: 0.7rem; }
+    .loot-card .lc-ctas { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1.1rem; }
+
+    .nogl { position: fixed; inset: 0; z-index: 60; display: none; align-items: center; justify-content: center; text-align: center; padding: 2rem; background: rgba(14,10,22,0.95); }
+    .nogl.on { display: flex; }
+    .nogl p { max-width: 34ch; font-size: 0.8rem; color: var(--bone-70); line-height: 1.9; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.15s !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="menuBg" aria-hidden="true"></canvas>
+  <div class="vignette" aria-hidden="true"></div>
+
+  <main>
+    <section class="hero">
+      <p class="eyebrow" id="mEyebrow">A Tuneland world</p>
+      <h1 class="world-title" id="mTitle">Loading this world…</h1>
+      <p class="world-artist" id="mArtist"></p>
+      <p class="world-bio" id="mBio"></p>
+      <p class="world-pitch" id="mPitch">Real loot is buried in this land. Follow the radar, dig it up, and keep what you find.</p>
+      <div class="stat-row">
+        <span class="chip" id="chipTracks" style="display:none"><span class="dot"></span><span id="chipTracksText"></span></span>
+        <span class="chip"><span class="dot" style="background:var(--ice);box-shadow:0 0 8px var(--ice)"></span>a new echo hides here today</span>
+        <span class="chip" id="chipLinks" style="display:none"><span class="dot" style="background:var(--coral);box-shadow:0 0 8px var(--coral)"></span><span id="chipLinksText"></span></span>
+      </div>
+      <div class="menu-ctas">
+        <button class="btn-primary" id="btnPlay">▶ &nbsp;Enter the world</button>
+        <button class="btn-ghost" id="btnPassport">🎒 &nbsp;Your passport</button>
+      </div>
+      <div class="race-card" id="raceCard" style="display:none">
+        <p class="rc-eyebrow">🏁 Race received</p>
+        <p class="rc-line" id="raceLine"></p>
+        <button class="btn-primary" id="btnRaceGo">Race their ghost</button>
+      </div>
+      <div class="fan-row">
+        <p class="fan-label">Your name in the world</p>
+        <input class="fan-input" id="fanName" maxlength="24" placeholder="Pick a name…" autocomplete="off" />
+      </div>
+      <div class="friend-box">
+        <p class="fb-t">Friends</p>
+        <p style="font-size:0.66rem;color:var(--bone-45)">Your friend code (send it to a friend, they paste it below):</p>
+        <p class="friend-code" id="friendCode"></p>
+        <div class="friend-add-row">
+          <input id="friendPaste" placeholder="Paste a friend code…" autocomplete="off" />
+          <button id="btnAddFriend">Add</button>
+        </div>
+        <p class="friend-list" id="friendList"></p>
+      </div>
+      <div class="neighbors" id="lbWrap" style="display:none">
+        <p class="fb-t">Top finders in this world</p>
+        <ol class="lb-list" id="lbList"></ol>
+      </div>
+      <div class="neighbors" id="neighbors" style="display:none">
+        <p class="fb-t">Linked worlds next door</p>
+        <div class="nb-row" id="nbRow"></div>
+      </div>
+      <ul class="how-strip">
+        <li><span class="g">🎵</span><b>Listen</b><span>The land is the music. Loud parts rise into ridges, quiet parts sink into lakes, and you hear the song whose ground you stand on. Glowing markers cross the land every 30 seconds of the track.</span></li>
+        <li><span class="g">🚶</span><b>Wander</b><span>Walk or fly, any time. Left thumb moves, right thumb looks. WASD and mouse on desktop, F to fly.</span></li>
+        <li><span class="g">📡</span><b>Hunt</b><span>Loot is buried out there. A radar pops up when you are close. Dig where it pings fastest.</span></li>
+        <li><span class="g">👾</span><b>Dodge</b><span>The corner arenas have glooms. They bite. Getting caught just sends you back to the edge.</span></li>
+        <li><span class="g">🌍</span><b>Cross</b><span>Corners can link to other artists' worlds. Walk through and you are in their land, music and all.</span></li>
+      </ul>
+    </section>
+  </main>
+
+  <section class="prose">
+    <h2>A place, not a <em>playlist</em></h2>
+    <p>This world is built out of its maker's work. Loud passages rise into ridges, quiet ones sink into lakes, and the ground you stand on decides what you hear. Glowing markers cross the land every 30 seconds of a piece, so you always know how deep in you are.</p>
+    <p><b>The loot is real.</b> Somewhere out there are buried chests holding things the artist left for whoever comes looking: early links, codes, notes. Your radar wakes up when you get close and pings faster as you close in. Some drops are limited to the first few finders, some vanish on a clock, and your finder number is yours forever.</p>
+    <p>Everything you do here goes in your passport: worlds visited, chests found, pieces walked end to end, day streaks from the daily echo, even the glooms you manage to tame in the corner arenas. Snap a photo and the frame carries a link that drops your friends at the exact spot you stood. Start a race and a friend can run against your ghost.</p>
+    <p>Corners of this world may lead into other artists' lands. Keep walking and you cross over, music and all, no loading screen.</p>
+
+    <h2>Questions, answered</h2>
+    <details class="faq">
+      <summary>Is this free?</summary>
+      <p>Yes. No download, no account, no signup. Open the page and walk in. Your name and passport live only on your device.</p>
+    </details>
+    <details class="faq">
+      <summary>Does it work on my phone?</summary>
+      <p>Yes, it is built phone-first. Left thumb walks, right thumb looks, tap to dig. On a computer, WASD and the mouse, F to fly.</p>
+    </details>
+    <details class="faq">
+      <summary>What do I actually do here?</summary>
+      <p>Wander and listen: the ground is the music. Hunt loot with the radar. Find the daily echo to build a streak. Dodge (or tame) the glooms in the corner arenas. Add friends and get a heads-up when they are in your area. Cross into linked worlds next door.</p>
+    </details>
+    <details class="faq">
+      <summary>What is in the loot?</summary>
+      <p>Whatever the artist buried: links to new releases, coupon codes, notes for early fans. Some drops are limited, so being early counts, and your finder number is recorded with every chest you open.</p>
+    </details>
+    <details class="faq">
+      <summary>What is the daily echo?</summary>
+      <p>One glowing block, hidden somewhere new every day, the same spot for everyone. Find it and your streak grows. Miss a day and it resets.</p>
+    </details>
+  </section>
+
+  <footer class="site-foot">
+    <span id="footWorld">A Tuneland world</span>
+    <a href="https://midhrami.com/tuneland/" rel="noopener">Get your own world</a>
+    <a href="/dashboard/">Artist dashboard</a>
+  </footer>
+
+  <!-- game layer -->
+  <div id="game" role="application" aria-label="Tuneland world">
+    <canvas id="gl"></canvas>
+    <div class="hud-top">
+      <button class="hud-btn" id="btnExit">✕</button>
+      <div class="hud-where">
+        <div class="hw-world" id="hudWorld"></div>
+        <div class="hw-area" id="hudArea"></div>
+      </div>
+      <button class="hud-btn" id="btnFly" aria-label="Toggle flying">🪽 walk</button>
+      <button class="hud-btn" id="btnShot" aria-label="Take a photo">📷</button>
+      <button class="hud-btn" id="btnRace" aria-label="Start a race">🏁</button>
+      <button class="hud-btn" id="btnMute" aria-label="Toggle sound">♪</button>
+    </div>
+    <div class="area-banner" id="areaBanner"></div>
+    <div class="hint-toast" id="toast"></div>
+    <div id="radarWrap"><canvas id="radar" width="216" height="216"></canvas></div>
+    <div class="joy" id="joyBase"><div class="knob" id="joyKnob"></div></div>
+    <div class="tbtns">
+      <button class="tbtn" id="btnUp" aria-label="Up">▲</button>
+      <button class="tbtn" id="btnJump" aria-label="Jump">⤒</button>
+      <button class="tbtn" id="btnDown" aria-label="Down">▼</button>
+    </div>
+    <p class="kbd-help">wasd move · mouse look · click dig · f fly · space jump / rise · shift sink · alt+click teleport</p>
+    <div class="crash-flash" id="crashFlash" aria-hidden="true"></div>
+    <div class="beat-flash" id="beatFlash" aria-hidden="true"></div>
+  </div>
+
+  <!-- overlays -->
+  <div class="veil" id="loadVeil">
+    <p class="v-title">Raising the land</p>
+    <p class="v-sub" id="loadSub"></p>
+    <p class="v-step" id="loadStep">reading the world</p>
+  </div>
+  <div class="veil" id="deathVeil">
+    <p class="v-title">Caught by a gloom</p>
+    <p class="v-sub">The arena keeps its loot behind teeth. You are back at the edge, in one piece.</p>
+    <div class="v-ctas"><button class="btn-primary" id="btnRespawn">Keep exploring</button></div>
+  </div>
+
+  <div class="loot-modal" id="lootModal">
+    <div class="loot-card">
+      <p class="lc-eyebrow">✦ Loot found</p>
+      <p class="lc-title" id="lootTitle"></p>
+      <p class="lc-msg" id="lootMsg"></p>
+      <p class="lc-code" id="lootCode" style="display:none"></p>
+      <p class="lc-remaining" id="lootFinder" style="color:var(--ice)"></p>
+      <p class="lc-remaining" id="lootRemaining"></p>
+      <div id="lootEmailRow" style="display:none;margin-top:0.9rem;text-align:left">
+        <p style="font-size:0.68rem;color:var(--bone-70);line-height:1.6" id="lootEmailAsk"></p>
+        <div style="display:flex;gap:0.4rem;margin-top:0.5rem">
+          <input id="lootEmail" type="email" placeholder="you@example.com" autocomplete="email"
+            style="flex:1;min-width:0;min-height:44px;padding:0.5rem 0.8rem;font-family:inherit;font-size:0.78rem;color:var(--bone);background:rgba(23,18,38,0.6);border:1px solid var(--line);border-radius:10px;outline:none" />
+          <button id="lootEmailGo" style="min-height:44px;padding:0 1rem;border-radius:10px;background:var(--acid);color:var(--void);font-weight:700;font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase">Send</button>
+        </div>
+        <p style="font-size:0.56rem;color:var(--bone-45);margin-top:0.4rem" id="lootEmailNote"></p>
+      </div>
+      <div class="lc-ctas">
+        <a class="btn-primary" id="lootOpen" href="#" target="_blank" rel="noopener" style="display:none">Open the link</a>
+        <button class="btn-ghost" id="lootClose">Back to the world</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- photo / share-card modal -->
+  <div class="loot-modal" id="shotModal">
+    <div class="loot-card" style="border-color:rgba(69,184,164,0.5)">
+      <p class="lc-eyebrow" id="shotEyebrow">📷 Your shot</p>
+      <img id="shotImg" alt="Your captured moment" style="width:100%;border-radius:12px;margin-top:0.7rem" />
+      <div class="lc-ctas">
+        <button class="btn-primary" id="shotShare">Share it</button>
+        <a class="btn-ghost" id="shotDownload" download="tuneland.png">Save the picture</a>
+        <button class="btn-ghost" id="shotCopyLink">Copy a link to this spot</button>
+        <button class="btn-ghost" id="shotClose">Back</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- race result modal -->
+  <div class="loot-modal" id="raceModal">
+    <div class="loot-card">
+      <p class="lc-eyebrow">🏁 Race</p>
+      <p class="lc-title" id="raceTitle"></p>
+      <p class="lc-msg" id="raceMsg"></p>
+      <div class="lc-ctas">
+        <button class="btn-primary" id="raceShare">Share this race</button>
+        <button class="btn-ghost" id="raceClose">Back to the world</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- passport -->
+  <div class="loot-modal" id="passModal">
+    <div class="loot-card" style="max-width:420px;text-align:left">
+      <p class="lc-eyebrow" style="text-align:center">🎒 Your passport</p>
+      <div class="pass-grid" id="passGrid"></div>
+      <p class="pass-sub" id="passCrowns"></p>
+      <p class="pass-sub" style="margin-top:0.6rem">Latest finds</p>
+      <div class="pass-finds" id="passFinds"></div>
+      <div class="lc-ctas">
+        <button class="btn-primary" id="passCard">Make a share card</button>
+        <button class="btn-ghost" id="passClose">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="nogl" id="nogl">
+    <p><b>This device can't start 3D graphics (WebGL).</b><br/>Tuneland needs WebGL to raise its land. Try a recent version of Chrome, Safari, Firefox or Edge, or another device.</p>
+  </div>
+
+<script src="/tuneland.js"></script>
+</body>
+</html>

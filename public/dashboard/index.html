@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Artist dashboard · Tuneland</title>
+  <meta name="description" content="Set up your Tuneland world: name it, add your songs, bury loot for your fans, and link your corners to other artists' worlds." />
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#171226" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23171226'/%3E%3Crect x='4' y='18' width='6' height='6' fill='%23f2a33c'/%3E%3Crect x='13' y='12' width='6' height='6' fill='%2345b8a4'/%3E%3Crect x='22' y='20' width='6' height='6' fill='%23e2603f'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --void: #171226; --panel: #251f3a; --panel-2: #2f2647;
+      --acid: #f2a33c; --acid-dim: rgba(242,163,60,0.55);
+      --ice: #45b8a4; --coral: #e2603f; --bone: #f2ead8;
+      --bone-70: rgba(242,234,216,0.72); --bone-45: rgba(242,234,216,0.45);
+      --bone-25: rgba(242,234,216,0.25); --line: rgba(242,234,216,0.14);
+      --disp: 'Bricolage Grotesque', system-ui, sans-serif;
+      --mono: 'Space Mono', ui-monospace, monospace;
+    }
+    body {
+      background: radial-gradient(rgba(242,163,60,0.035) 1px, transparent 1.3px), linear-gradient(180deg, #171226 0%, #241a38 60%, #33234a 100%);
+      background-size: 26px 26px, auto;
+      background-attachment: fixed; color: var(--bone);
+      font-family: var(--mono); line-height: 1.6; -webkit-font-smoothing: antialiased;
+      padding-bottom: 4rem;
+    }
+    a { color: var(--ice); }
+    button { font-family: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+    input, select, textarea { font-family: inherit; font-size: 0.8rem; color: var(--bone); background: rgba(23,18,38,0.6); border: 1px solid var(--line); border-radius: 10px; padding: 0.6rem 0.8rem; outline: none; width: 100%; }
+    input:focus, select:focus, textarea:focus { border-color: var(--acid-dim); }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 2rem 1.25rem; }
+    h1 { font-family: var(--disp); font-weight: 800; font-size: clamp(1.8rem, 6vw, 2.6rem); text-transform: uppercase; letter-spacing: -0.02em; }
+    .sub { color: var(--bone-45); font-size: 0.74rem; margin-top: 0.4rem; }
+    .card { border: 1px solid var(--line); border-radius: 16px; background: rgba(37,31,58,0.55); padding: 1.2rem; margin-top: 1.2rem; }
+    .card h2 { font-family: var(--disp); font-weight: 700; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 0.02em; margin-bottom: 0.3rem; }
+    .card .hint { font-size: 0.68rem; color: var(--bone-45); margin-bottom: 0.9rem; line-height: 1.7; }
+    .row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.6rem; }
+    .row > * { flex: 1; min-width: 180px; }
+    label { display: block; font-size: 0.6rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--bone-45); margin: 0.7rem 0 0.3rem; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+      min-height: 46px; padding: 0.7rem 1.3rem; border-radius: 12px;
+      font-weight: 700; font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--void); background: var(--acid); margin-top: 0.9rem;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn.ghost { color: var(--bone-70); background: rgba(23,18,38,0.5); border: 1px solid var(--line); }
+    .btn.danger { background: var(--coral); color: #fff; }
+    .btn[disabled] { opacity: 0.4; pointer-events: none; }
+    .status { font-size: 0.68rem; margin-top: 0.7rem; min-height: 1.2em; color: var(--ice); }
+    .status.err { color: var(--coral); }
+    .pill { display: inline-block; font-size: 0.58rem; letter-spacing: 0.14em; text-transform: uppercase; border: 1px solid var(--line); border-radius: 999px; padding: 0.25rem 0.7rem; color: var(--bone-45); margin-right: 0.4rem; }
+    .pill.ok { color: var(--acid); border-color: var(--acid-dim); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.7rem; margin-top: 0.6rem; }
+    th, td { text-align: left; padding: 0.45rem 0.5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { font-size: 0.56rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--bone-45); }
+    td button { color: var(--coral); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.1em; }
+    .stat-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.5rem; margin-top: 0.4rem; }
+    .stat-tiles .st { border: 1px solid var(--line); border-radius: 10px; padding: 0.6rem; background: rgba(23,18,38,0.4); }
+    .stat-tiles .st b { display: block; font-family: var(--disp); font-size: 1.4rem; color: var(--acid); }
+    .stat-tiles .st span { font-size: 0.56rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--bone-45); }
+    .stat-bars { display: flex; align-items: flex-end; gap: 3px; height: 60px; margin-top: 0.8rem; }
+    .stat-bars i { flex: 1; background: rgba(242,163,60,0.55); border-radius: 3px 3px 0 0; min-height: 2px; }
+    .warn {
+      border: 1px solid rgba(226,96,63,0.55); border-radius: 12px; background: rgba(226,96,63,0.09);
+      padding: 0.8rem 0.95rem; font-size: 0.68rem; color: var(--bone-70); line-height: 1.7; margin: 0.4rem 0 0.6rem;
+    }
+    .warn b { color: var(--coral); display: block; margin-bottom: 0.25rem; }
+    .rights-row { display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.68rem; color: var(--bone-70); text-transform: none; letter-spacing: 0; margin: 0.4rem 0 0.2rem; line-height: 1.6; }
+    .rights-row input { width: auto; margin-top: 0.15rem; accent-color: var(--coral); }
+    .layout-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.6rem; margin-top: 0.3rem; }
+    .layout-opt { display: block; border: 1px solid var(--line); border-radius: 12px; padding: 0.8rem; background: rgba(23,18,38,0.4); cursor: pointer; text-transform: none; letter-spacing: 0; }
+    .layout-opt b { display: block; font-size: 0.72rem; color: var(--bone); margin: 0.2rem 0; }
+    .layout-opt span { font-size: 0.64rem; color: var(--bone-45); line-height: 1.6; display: block; }
+    .layout-opt input { width: auto; accent-color: var(--acid); }
+    .shape-row { display: flex; align-items: center; gap: 0.6rem; border: 1px solid var(--line); border-radius: 10px; padding: 0.5rem 0.7rem; margin-top: 0.4rem; background: rgba(23,18,38,0.4); }
+    .shape-row .sr-ord { font-size: 0.62rem; color: var(--bone-45); width: 1.4rem; }
+    .shape-row .sr-title { flex: 1; font-size: 0.72rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .shape-row input[type=range] { width: 90px; padding: 0; accent-color: var(--acid); }
+    .shape-row button { font-size: 0.8rem; color: var(--bone-70); padding: 0.2rem 0.4rem; }
+    .hue-dot { display: inline-block; width: 14px; height: 14px; border-radius: 4px; vertical-align: middle; }
+    #lootMap { width: 100%; max-width: 480px; aspect-ratio: 1; border: 1px solid var(--line); border-radius: 12px; touch-action: manipulation; cursor: crosshair; display: block; margin-top: 0.7rem; background: #16112a; }
+    .veil { position: fixed; inset: 0; z-index: 40; display: none; align-items: center; justify-content: center; text-align: center; background: rgba(14,10,22,0.92); padding: 2rem; }
+    .veil.on { display: flex; }
+    .veil .box { max-width: 420px; }
+    .veil h2 { font-family: var(--disp); font-weight: 800; font-size: 1.6rem; text-transform: uppercase; }
+    .veil p { font-size: 0.74rem; color: var(--bone-70); margin-top: 0.7rem; line-height: 1.8; }
+    .foot { max-width: 760px; margin: 2rem auto 0; padding: 1.2rem; border-top: 1px solid var(--line); font-size: 0.6rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--bone-25); display: flex; gap: 1.4rem; flex-wrap: wrap; }
+    .foot a { color: var(--bone-45); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+  <div class="wrap">
+    <h1>Artist dashboard</h1>
+    <p class="sub" id="topSub">Your world, your songs, your loot.</p>
+    <p style="margin-top:0.6rem">
+      <span class="pill" id="pillClaim">checking…</span><span class="pill" id="pillReg">hub: checking…</span>
+      <a href="/" style="font-size:0.66rem">← open your world</a>
+    </p>
+
+    <div class="card" id="claimCard" style="display:none">
+      <h2>Claim this world</h2>
+      <p class="hint">You are the first person here, which makes this world yours. Claiming stores a key in this browser. Do it now, on your own device.</p>
+      <div class="warn">
+        <b>The artist agreement, in short.</b>
+        Your world runs on your accounts and everything it hosts and does is your responsibility: the music, the loot, the links, and how it all gets used, correct or not, legal or not. You indemnify Midhrami Studios and hold it harmless against any claims arising from your world. The software comes as is, and Midhrami can delist worlds from the public map. Read the full agreement at
+        <a href="https://midhrami.com/tuneland/agreement/" target="_blank" rel="noopener">midhrami.com/tuneland/agreement</a>.
+      </div>
+      <label class="rights-row"><input type="checkbox" id="cAgree" /> I have read and accept the Tuneland artist agreement. My world and its usage are my responsibility, and Midhrami is indemnified and not responsible for them.</label>
+      <button class="btn" id="btnClaim">Claim this world</button>
+      <p class="status" id="claimStatus"></p>
+    </div>
+
+    <div class="card" id="termsCard" style="display:none">
+      <h2>One thing before you continue</h2>
+      <p class="hint">This world was claimed before the artist agreement existed. Accept it to keep using the dashboard and stay on the Tuneland map.</p>
+      <div class="warn">
+        <b>The artist agreement, in short.</b>
+        Your world runs on your accounts and everything it hosts and does is your responsibility: the music, the loot, the links, and how it all gets used, correct or not, legal or not. You indemnify Midhrami Studios and hold it harmless against any claims arising from your world. Full text:
+        <a href="https://midhrami.com/tuneland/agreement/" target="_blank" rel="noopener">midhrami.com/tuneland/agreement</a>.
+      </div>
+      <label class="rights-row"><input type="checkbox" id="cAgreeLate" /> I have read and accept the Tuneland artist agreement</label>
+      <button class="btn" id="btnAcceptTerms">Accept and continue</button>
+      <p class="status" id="termsStatus"></p>
+    </div>
+
+    <div class="card" id="lockedCard" style="display:none">
+      <h2>This world is already claimed</h2>
+      <p class="hint">If this is your world but a new browser, your key lives in the browser you claimed it with. Lost it entirely? Ask the Tuneland team from the hub page to reset your claim, then claim again here.</p>
+    </div>
+
+    <div id="adminUI" style="display:none">
+
+      <div class="card">
+        <h2>Your numbers</h2>
+        <p class="hint">The last 30 days, counted in your own Cloudflare. Visits and minutes are anonymous totals; emails are fans who chose to leave one with you.</p>
+        <div class="stat-tiles" id="statTiles"></div>
+        <div id="statBars" class="stat-bars"></div>
+        <table id="statSongs" style="display:none"><thead><tr><th>Piece</th><th>Walked end to end</th></tr></thead><tbody></tbody></table>
+        <div class="row">
+          <button class="btn ghost" id="btnExportEmails" style="flex:0 0 auto">Download your fan emails (CSV)</button>
+        </div>
+        <p class="status" id="statStatus"></p>
+      </div>
+
+      <div class="card">
+        <h2>1 · Name your world</h2>
+        <p class="hint">This is what fans see on the way in.</p>
+        <div class="row">
+          <div><label>World name</label><input id="fWorldName" maxlength="80" placeholder="The Neon Valley" /></div>
+          <div><label>Your artist name</label><input id="fArtist" maxlength="80" placeholder="Mira & The Moons" /></div>
+        </div>
+        <label>A line for your fans (optional)</label>
+        <textarea id="fBio" rows="2" maxlength="400" placeholder="Welcome to my valley. The loot is real, the glooms are not (mostly)."></textarea>
+        <button class="btn" id="btnSaveProfile">Save</button>
+        <p class="status" id="profileStatus"></p>
+      </div>
+
+      <div class="card">
+        <h2>2 · Add your songs</h2>
+        <p class="hint">Upload an audio file (mp3, m4a, wav · up to 25 MB). It is stored on your own Cloudflare, played inside your world, and its loudness shapes your terrain: loud parts raise ridges, quiet parts sink into water valleys. While it uploads, your browser listens to it once to measure that shape.</p>
+        <div class="warn">
+          <b>Only upload music you have the rights to.</b>
+          You are hosting these files on your own Cloudflare account, in public. That means your own songs, or songs you have written permission to host and share. Covers, remixes with uncleared samples, and other people's tracks can get your Cloudflare and GitHub accounts suspended and can expose you to copyright claims. You are responsible for what your world serves.
+        </div>
+        <label class="rights-row"><input type="checkbox" id="cRights" /> I wrote this song or hold the rights to host and share this recording</label>
+        <div class="row">
+          <div><label>Song title</label><input id="tTitle" maxlength="120" placeholder="Song title" /></div>
+          <div><label>Audio file</label><input id="tFile" type="file" accept="audio/*" /></div>
+        </div>
+        <button class="btn" id="btnUpload">Upload song</button>
+        <p class="status" id="trackStatus"></p>
+        <table id="trackTable" style="display:none">
+          <thead><tr><th>Title</th><th>Source</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>No songs? Make land from anything</h2>
+        <p class="hint">Tuneland is for creators, not only musicians. Turn a picture, your words, or a skyline you draw with your finger into terrain. It behaves exactly like a song: it gets a region of your world, a color, an order, and 30-second markers. Nothing you use here leaves your browser; only the shape of the land is saved.</p>
+        <div class="row">
+          <div><label>Name this land</label><input id="npTitle" maxlength="120" placeholder="Chapter one" /></div>
+          <div><label>How long a walk</label>
+            <select id="npDur">
+              <option value="60">1 minute</option>
+              <option value="120" selected>2 minutes</option>
+              <option value="180">3 minutes</option>
+              <option value="300">5 minutes</option>
+            </select>
+          </div>
+        </div>
+        <label>From a picture (bright parts become peaks)</label>
+        <div class="row">
+          <input id="npImage" type="file" accept="image/*" />
+          <button class="btn ghost" id="btnFromImage" style="flex:0 0 auto">Use the picture</button>
+        </div>
+        <label>From words (a poem, a chapter, an episode summary)</label>
+        <textarea id="npWords" rows="3" maxlength="8000" placeholder="Paste or write here. Long words swell the hills, sentence ends land as beats."></textarea>
+        <button class="btn ghost" id="btnFromWords">Use the words</button>
+        <label>Or draw your skyline</label>
+        <canvas id="npDraw" width="300" height="80" style="width:100%;max-width:480px;height:80px;border:1px solid var(--line);border-radius:10px;background:#16112a;touch-action:none;cursor:crosshair;display:block"></canvas>
+        <div class="row">
+          <button class="btn ghost" id="btnDrawClear" style="flex:0 0 auto">Clear</button>
+          <button class="btn" id="btnFromDraw" style="flex:0 0 auto">Use this skyline</button>
+        </div>
+        <p class="status" id="npStatus"></p>
+      </div>
+
+      <div class="card">
+        <h2>3 · Shape your world</h2>
+        <p class="hint">Your songs are the terrain. Pick how they lay out, order them, and give each one a color. Glowing time markers cross the land every 30 seconds of each song, so fans always know how deep into a track they are standing. The corner arenas stay neutral ground.</p>
+        <label>Layout</label>
+        <div class="layout-row">
+          <label class="layout-opt"><input type="radio" name="layout" value="rings" checked />
+            <b>Concentric rings</b><span>Your first song is the innermost land. Each next song is a ring around it. Walking outward from the center walks your discography.</span></label>
+          <label class="layout-opt"><input type="radio" name="layout" value="lanes" />
+            <b>Rectangular lanes</b><span>Each song gets its own lane, side by side, west to east. Walking south walks through the song.</span></label>
+        </div>
+        <label>Song order and colors</label>
+        <div id="shapeList"></div>
+        <button class="btn" id="btnSaveShape">Save shape</button>
+        <p class="status" id="areaStatus"></p>
+      </div>
+
+      <div class="card">
+        <h2>4 · Bury loot</h2>
+        <p class="hint">Tap the map to pick a spot (the map is your whole world, top-down; darker is lower ground, blue is water). Fans dig it up and get whatever you put inside: a link, a code, a note. Limited drops disappear after that many finds.</p>
+        <label>Start from a campaign template (optional)</label>
+        <div class="row">
+          <button class="btn ghost" id="tplRelease" style="flex:1">Release day</button>
+          <button class="btn ghost" id="tplTour" style="flex:1">Tour stop</button>
+          <button class="btn ghost" id="tplPresave" style="flex:1">Presave hunt</button>
+        </div>
+        <label>Area</label>
+        <select id="lootArea"></select>
+        <canvas id="lootMap" width="288" height="288"></canvas>
+        <p class="status" id="lootSpot">No spot picked yet. Tap the map.</p>
+        <div class="row">
+          <div><label>Title</label><input id="lTitle" maxlength="120" placeholder="Early listen" /></div>
+          <div><label>How many fans can find it (0 = no limit)</label><input id="lMax" type="number" min="0" max="1000000" value="0" /></div>
+        </div>
+        <div class="row">
+          <div><label>Appears at (optional)</label><input id="lStart" type="datetime-local" /></div>
+          <div><label>Disappears at (optional)</label><input id="lEnd" type="datetime-local" /></div>
+        </div>
+        <p class="hint" style="margin-top:0.4rem">Scarcity works by count, by time, or both: "first 50 fans", "release weekend only", or "first 50 fans during release weekend".</p>
+        <label>Message (optional)</label>
+        <input id="lMsg" maxlength="500" placeholder="You found it. Here is something before everyone else." />
+        <div class="row">
+          <div><label>Link (optional)</label><input id="lUrl" maxlength="500" placeholder="https://…" /></div>
+          <div><label>Coupon code (optional)</label><input id="lCode" maxlength="120" placeholder="FIRST50" /></div>
+        </div>
+        <label>Email signup</label>
+        <select id="lEmailMode">
+          <option value="off">No email involved</option>
+          <option value="optional">Offer a signup after they open it</option>
+          <option value="required">They leave an email to open it</option>
+        </select>
+        <button class="btn" id="btnBury">Bury it</button>
+        <p class="status" id="buryStatus"></p>
+        <table id="lootTable" style="display:none">
+          <thead><tr><th>What</th><th>Where</th><th>Found</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>5 · Join the Tuneland map</h2>
+        <p class="hint">Registering puts your world in the public directory so fans can find it and other artists can link to you. Do this after naming your world.</p>
+        <button class="btn" id="btnRegister">Join the Tuneland map</button>
+        <p class="status" id="regStatus"></p>
+      </div>
+
+      <div class="card">
+        <h2>6 · Link your corners</h2>
+        <p class="hint">Pick one of your corners and another registered world. If they say yes, that corner becomes a shared arena: fans walk straight from your land into theirs, and you can both bury loot there.</p>
+        <div class="row">
+          <div><label>Your corner</label>
+            <select id="linkCorner">
+              <option value="1">Top-left (northwest)</option>
+              <option value="3">Top-right (northeast)</option>
+              <option value="5">Bottom-right (southeast)</option>
+              <option value="7">Bottom-left (southwest)</option>
+            </select>
+          </div>
+          <div><label>World to link with</label><select id="linkTarget"><option value="">Loading the directory…</option></select></div>
+        </div>
+        <button class="btn" id="btnLinkReq">Ask them to link</button>
+        <p class="status" id="linkStatus"></p>
+        <table id="linkTable" style="display:none">
+          <thead><tr><th>Link</th><th>Status</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="veil" id="downVeil">
+    <div class="box">
+      <h2>The world is waking up</h2>
+      <p id="downMsg">Could not reach your world's API. If you deployed a minute ago, give it a moment and reload this page.</p>
+      <button class="btn" onclick="location.reload()">Reload</button>
+    </div>
+  </div>
+
+  <div class="foot">
+    <a href="/">Your world</a>
+    <a href="https://midhrami.com/tuneland/" rel="noopener">Tuneland hub</a>
+  </div>
+
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const REGISTRY = 'https://midhrami.com/tuneland/api';
+  const TOKEN_KEY = 'tl1_admin_token';
+  let token = null;
+  try { token = localStorage.getItem(TOKEN_KEY); } catch (e) {}
+  let world = null;   // /api/world payload
+  let lootSpot = null;
+
+  function api(path, opts) {
+    opts = opts || {};
+    opts.headers = Object.assign({}, opts.headers || {}, token ? { authorization: 'Bearer ' + token } : {});
+    return fetch(path, opts).then((r) => r.json().catch(() => ({ ok: false, error: 'bad response' })).then((d) => {
+      if (r.status === 401) { d.unauthorized = true; }
+      return d;
+    }));
+  }
+  function setStatus(id, msg, isErr) {
+    const el = $(id);
+    el.textContent = msg || '';
+    el.classList.toggle('err', !!isErr);
+  }
+
+  /* ── deterministic terrain preview (mirror of the game's height math) ── */
+  function xmur3(str) {
+    let h = 1779033703 ^ str.length;
+    for (let i = 0; i < str.length; i++) { h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19); }
+    return function () { h = Math.imul(h ^ (h >>> 16), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); return (h ^= h >>> 16) >>> 0; };
+  }
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  const seeded = (s) => mulberry32(xmur3(s)());
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+  function makeNoise2D(rand) {
+    const G = 64, grid = new Float32Array(G * G);
+    for (let i = 0; i < grid.length; i++) grid[i] = rand();
+    const sm = (t) => t * t * (3 - 2 * t);
+    return function (x, y) {
+      const xi = Math.floor(x), yi = Math.floor(y);
+      const xf = x - xi, yf = y - yi;
+      const x0 = ((xi % G) + G) % G, y0 = ((yi % G) + G) % G;
+      const x1 = (x0 + 1) % G, y1 = (y0 + 1) % G;
+      const a = grid[y0 * G + x0], b = grid[y0 * G + x1], c = grid[y1 * G + x0], d = grid[y1 * G + x1];
+      const u = sm(xf), v = sm(yf);
+      return lerp(lerp(a, b, u), lerp(c, d, u), v);
+    };
+  }
+  const AREA = 96, SXZ = 288, SEA = 12;
+  const CORNER_TILE0 = { 1: [0, 0], 3: [2, 0], 5: [2, 2], 7: [0, 2] };
+  const OUTER_PT = { 1: [0, 0], 3: [96, 0], 5: [96, 96], 7: [0, 96] };
+  const AREA_CORNER = { 0: 1, 2: 3, 8: 5, 6: 7 };
+  const OPP_CORNER = { 1: 5, 3: 7, 5: 1, 7: 3 };
+  let n2 = null, arenaFns = {};
+  function linkKeyFor(corner) {
+    const link = (world.links || []).find((l) => l.corner === corner);
+    if (!link) return null;
+    const a = { id: world.worldId, c: corner }, b = { id: link.other.id, c: OPP_CORNER[corner] };
+    const [lo, hi] = a.id < b.id ? [a, b] : [b, a];
+    return 'link|' + lo.id + '.' + lo.c + '|' + hi.id + '.' + hi.c;
+  }
+  function terrainFns() {
+    n2 = makeNoise2D(seeded('world|' + world.worldId));
+    arenaFns = {};
+    for (const c of [1, 3, 5, 7]) {
+      const key = linkKeyFor(c) || ('arena|' + world.worldId + '.' + c);
+      arenaFns[c] = { key, n2: makeNoise2D(seeded(key)) };
+    }
+  }
+  /* songs shape the land, same math as the game client */
+  const RMAX = 138, LANE_M = 14;
+  let songs = [];
+  function pseudoEnvelope(seedKey) {
+    const rand = seeded(seedKey);
+    const n = 300, env = new Array(n);
+    for (let i = 0; i < n; i++) env[i] = clamp(0.32 + 0.3 * Math.sin(i / 18 + rand() * 6) + rand() * 0.12, 0, 1);
+    return { dur: 30, env };
+  }
+  function buildSongs() {
+    songs = (world.tracks || []).map((t) => {
+      let envd = t.envelope;
+      if (!envd || !Array.isArray(envd.env) || !envd.env.length) envd = pseudoEnvelope('pseudoenv|' + t.id);
+      const hue = (t.hue !== null && t.hue !== undefined) ? t.hue : (xmur3('hue|' + t.id)() % 1000) / 1000;
+      return { id: t.id, title: t.title, hue, dur: clamp(Number(envd.dur) || 30, 10, 600), arr: envd.env };
+    });
+  }
+  function sampleEnv(song, t) {
+    const arr = song.arr;
+    const f = clamp(t / song.dur * arr.length, 0, arr.length - 1.001);
+    const i = f | 0;
+    return lerp(arr[i], arr[Math.min(arr.length - 1, i + 1)], f - i);
+  }
+  function curLayout() {
+    const el = document.querySelector('input[name=layout]:checked');
+    return el && el.value === 'lanes' ? 'lanes' : 'rings';
+  }
+  function songAtD(x, z) {
+    const n = songs.length;
+    if (!n) return null;
+    if (curLayout() === 'lanes') {
+      const idx = clamp(Math.floor(x / SXZ * n), 0, n - 1);
+      const song = songs[idx];
+      const span = SXZ - 2 * LANE_M;
+      return { song, idx, t: clamp((z - LANE_M) / span, 0, 1) * song.dur, tPerBlock: song.dur / span };
+    }
+    const r = Math.hypot(x - SXZ / 2, z - SXZ / 2);
+    const band = RMAX / n;
+    if (r >= RMAX) return { song: songs[n - 1], idx: n - 1, t: songs[n - 1].dur, tPerBlock: songs[n - 1].dur / band, beyond: true };
+    const idx = clamp(Math.floor(r / band), 0, n - 1);
+    const song = songs[idx];
+    return { song, idx, t: (r - idx * band) / band * song.dur, tPerBlock: song.dur / band };
+  }
+  function ownHeight(x, z) {
+    const sa = songAtD(x, z);
+    let h;
+    if (!sa) {
+      const n = n2(x / 34, z / 34) + 0.5 * n2(x / 13, z / 13) + 0.25 * n2(x / 6, z / 6);
+      h = 4 + (n / 1.75) * 22;
+      const dx = (x - SXZ / 2) / (SXZ / 2), dz = (z - SXZ / 2) / (SXZ / 2);
+      h += Math.max(0, 1 - Math.sqrt(dx * dx + dz * dz) * 2.2) * 5;
+    } else {
+      const level = sampleEnv(sa.song, sa.t);
+      h = 4.5 + level * 20 + n2(x / 7.5, z / 7.5) * (1.2 + level * 5.5) + n2(x / 23 + 9.1, z / 23) * 2.5 * level;
+      const calm = clamp(level / 0.22, 0, 1);
+      const s = calm * calm * (3 - 2 * calm);
+      h = lerp(1.5 + n2(x / 11, z / 11) * 1.6, h, s);
+      if (sa.beyond) h = Math.min(h, 3);
+    }
+    const edge = Math.min(x, z, SXZ - 1 - x, SXZ - 1 - z);
+    return lerp(1, h, clamp(edge / 18, 0, 1));
+  }
+  function arenaHeight(fn, u, v) {
+    const n = fn.n2(u / 21, v / 21) + 0.5 * fn.n2(u / 9, v / 9);
+    const du = (u - AREA / 2) / (AREA / 2), dv = (v - AREA / 2) / (AREA / 2);
+    const d = Math.sqrt(du * du + dv * dv);
+    let h = 9 + (n / 1.5) * 6 - Math.max(0, 1 - d * 1.6) * 3.5;
+    h += Math.max(0, d - 0.72) * 15;
+    return h;
+  }
+  function heightAt(x, z) {
+    const ai = (clamp(Math.floor(z / AREA), 0, 2)) * 3 + clamp(Math.floor(x / AREA), 0, 2);
+    const c = AREA_CORNER[ai];
+    const base = ownHeight(x, z);
+    if (c === undefined) return base;
+    const fn = arenaFns[c];
+    const [tc, tr] = CORNER_TILE0[c];
+    const u = x - tc * AREA, v = z - tr * AREA;
+    const innerU = OUTER_PT[c][0] === 0 ? AREA - u : u;
+    const innerV = OUTER_PT[c][1] === 0 ? AREA - v : v;
+    const t = clamp(Math.min(innerU, innerV) / 16, 0, 1);
+    const s = t * t * (3 - 2 * t);
+    return lerp(base, arenaHeight(fn, u, v), s);
+  }
+  function hue2rgbSmall(h) {
+    const f = (nn) => {
+      const k = (nn + h * 12) % 12;
+      return 0.45 - 0.5 * Math.min(0.45, 1 - 0.45) * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    };
+    return [f(0) * 255, f(8) * 255, f(4) * 255];
+  }
+  function drawMap() {
+    if (!world || !world.worldId) return;
+    buildSongs();
+    terrainFns();
+    const cv = $('lootMap'), ctx = cv.getContext('2d');
+    const img = ctx.createImageData(288, 288);
+    for (let z = 0; z < 288; z++) for (let x = 0; x < 288; x++) {
+      const h = heightAt(x, z);
+      const o = (z * 288 + x) * 4;
+      const inArena = AREA_CORNER[(clamp(Math.floor(z / AREA), 0, 2)) * 3 + clamp(Math.floor(x / AREA), 0, 2)] !== undefined;
+      const sa = inArena ? null : songAtD(x, z);
+      if (h <= SEA) { img.data[o] = 22; img.data[o + 1] = 60 + h * 3; img.data[o + 2] = 110 + h * 4; }
+      else {
+        const k = clamp((h - SEA) / 26, 0, 1);
+        let r = 40 + k * 150, g = 70 + k * 140, b = 40 + k * 120;
+        if (sa) { // tint the land by its song's color
+          const t3 = hue2rgbSmall(sa.song.hue);
+          r = r * 0.45 + t3[0] * (0.35 + k * 0.3);
+          g = g * 0.45 + t3[1] * (0.35 + k * 0.3);
+          b = b * 0.45 + t3[2] * (0.35 + k * 0.3);
+        }
+        // 30-second time markers as bright lines
+        if (sa && !sa.beyond && sa.t > 3) {
+          const tm = sa.t % 30;
+          if (Math.min(tm, 30 - tm) < sa.tPerBlock * 0.8) { r = 255; g = 199; b = 102; }
+        }
+        img.data[o] = r; img.data[o + 1] = g; img.data[o + 2] = b;
+      }
+      img.data[o + 3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
+    // grid lines
+    ctx.strokeStyle = 'rgba(242,234,216,0.35)';
+    ctx.lineWidth = 1;
+    for (const g of [96, 192]) {
+      ctx.beginPath(); ctx.moveTo(g, 0); ctx.lineTo(g, 288); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, g); ctx.lineTo(288, g); ctx.stroke();
+    }
+    // existing loot dots
+    for (const l of adminLoot) {
+      ctx.fillStyle = '#f2a33c';
+      ctx.beginPath(); ctx.arc(l.x, l.z, 3, 0, 6.284); ctx.fill();
+    }
+    if (lootSpot) {
+      ctx.strokeStyle = '#e2603f'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(lootSpot.x, lootSpot.z, 6, 0, 6.284); ctx.stroke();
+    }
+  }
+  $('lootMap').addEventListener('click', (e) => {
+    const r = e.target.getBoundingClientRect();
+    const x = Math.round((e.clientX - r.left) / r.width * 287);
+    const z = Math.round((e.clientY - r.top) / r.height * 287);
+    lootSpot = { x, z };
+    const col = Math.floor(x / 96), row = Math.floor(z / 96);
+    const ai = row * 3 + col;
+    // auto-select the matching area
+    const key = areaKeyOf(ai);
+    const sel = $('lootArea');
+    for (const opt of sel.options) if (opt.value === key) sel.value = key;
+    setStatus('lootSpot', 'Spot picked at ' + x + ', ' + z + ' in ' + AREA_NAMES[ai] + (heightAt(x, z) <= SEA ? ' · careful, that is water' : ''));
+    drawMap();
+  });
+  const AREA_NAMES = ['Northwest arena', 'North fields', 'Northeast arena', 'West fields', 'Home stage', 'East fields', 'Southwest arena', 'South fields', 'Southeast arena'];
+  function areaKeyOf(ai) {
+    const c = AREA_CORNER[ai];
+    if (c !== undefined) return arenaFns[c] ? arenaFns[c].key : 'arena|' + world.worldId + '.' + c;
+    return 'own:' + ai;
+  }
+
+  /* ── envelope analysis (in the artist's browser, once, at upload) ── */
+  function analyzeAudio(arrayBuffer) {
+    return new Promise((resolve) => {
+      let ctx = null;
+      try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { resolve(null); return; }
+      const fail = () => { try { ctx.close(); } catch (e) {} resolve(null); };
+      try {
+        const p = ctx.decodeAudioData(arrayBuffer.slice(0), (buf) => {
+          try {
+            const dur = Math.min(buf.duration, 600);
+            const nb = Math.min(600, Math.max(10, Math.ceil(dur * 10)));
+            const binDur = dur / nb;
+            const sr = buf.sampleRate;
+            const ch0 = buf.getChannelData(0);
+            const env = new Array(nb);
+            const win = Math.floor(sr * binDur);
+            for (let bi = 0; bi < nb; bi++) {
+              const s0 = bi * win, s1 = Math.min(ch0.length, s0 + win);
+              let e = 0;
+              for (let i = s0; i < s1; i += 4) e += ch0[i] * ch0[i];
+              env[bi] = Math.sqrt(e / Math.max(1, (s1 - s0) / 4));
+            }
+            const sorted = env.slice().sort((a, b) => a - b);
+            const p95 = sorted[Math.floor(sorted.length * 0.95)] || 1;
+            for (let i = 0; i < nb; i++) env[i] = Math.min(1, env[i] / p95);
+            // onsets as beats
+            const beats = [];
+            let mean = 0;
+            const flux = new Array(nb).fill(0);
+            for (let i = 1; i < nb; i++) { flux[i] = Math.max(0, env[i] - env[i - 1]); mean += flux[i]; }
+            mean /= nb;
+            let last = -1;
+            for (let i = 1; i < nb - 1 && beats.length < 400; i++) {
+              if (flux[i] > mean * 2.2 && flux[i] >= flux[i - 1] && flux[i] >= flux[i + 1]) {
+                const t = i * binDur;
+                if (t - last >= 0.25) { beats.push(Math.round(t * 100) / 100); last = t; }
+              }
+            }
+            try { ctx.close(); } catch (e) {}
+            resolve({ dur: Math.round(dur * 10) / 10, env: env.map((v) => Math.round(v * 1000) / 1000), beats });
+          } catch (e) { fail(); }
+        }, fail);
+        if (p && p.catch) p.catch(fail);
+      } catch (e) { fail(); }
+    });
+  }
+
+  /* ── boot / claim flow ── */
+  let adminLoot = [];
+  function boot() {
+    fetch('/api/world').then((r) => r.json()).then((d) => {
+      if (!d || !d.ok) throw new Error('bad');
+      world = d;
+      $('pillClaim').textContent = d.claimed ? 'claimed' : 'unclaimed';
+      $('pillClaim').classList.toggle('ok', d.claimed);
+      $('pillReg').textContent = d.registered ? 'on the tuneland map' : 'not on the map yet';
+      $('pillReg').classList.toggle('ok', d.registered);
+      if (!d.claimed) { $('claimCard').style.display = ''; return; }
+      if (!token) { $('lockedCard').style.display = ''; return; }
+      // verify the token still works
+      api('/api/admin/whoami').then((w) => {
+        if (w.unauthorized) { $('lockedCard').style.display = ''; return; }
+        if (w.termsAccepted === false) { $('termsCard').style.display = ''; return; }
+        showAdmin();
+      });
+    }).catch(() => { $('downVeil').classList.add('on'); });
+  }
+  $('btnAcceptTerms').addEventListener('click', () => {
+    if (!$('cAgreeLate').checked) { setStatus('termsStatus', 'Tick the box after reading the agreement.', true); return; }
+    api('/api/admin/accept-terms', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ agree: true })
+    }).then((d) => {
+      if (d.ok) { $('termsCard').style.display = 'none'; showAdmin(); }
+      else setStatus('termsStatus', d.error || 'That did not save. Try again.', true);
+    }).catch(() => setStatus('termsStatus', 'Could not reach the world.', true));
+  });
+  $('btnClaim').addEventListener('click', () => {
+    if (!$('cAgree').checked) { setStatus('claimStatus', 'Tick the box after reading the agreement. Claiming means accepting it.', true); return; }
+    setStatus('claimStatus', 'Claiming…');
+    fetch('/api/admin/claim', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ agree: true })
+    }).then((r) => r.json()).then((d) => {
+      if (d && d.ok && d.token) {
+        token = d.token;
+        try { localStorage.setItem(TOKEN_KEY, token); } catch (e) {}
+        setStatus('claimStatus', 'This world is yours. Setting things up…');
+        setTimeout(() => location.reload(), 700);
+      } else setStatus('claimStatus', (d && d.error) === 'already claimed' ? 'Someone claimed it just before you.' : 'Claiming failed. Reload and try again.', true);
+    }).catch(() => setStatus('claimStatus', 'Could not reach the world. Reload and try again.', true));
+  });
+
+  function showAdmin() {
+    $('adminUI').style.display = '';
+    $('topSub').textContent = world.name + ' · ' + world.artist;
+    $('fWorldName').value = world.name || '';
+    $('fArtist').value = world.artist || '';
+    $('fBio').value = world.bio || '';
+    const lr = document.querySelector('input[name=layout][value=' + (world.layout === 'lanes' ? 'lanes' : 'rings') + ']');
+    if (lr) lr.checked = true;
+    buildShapeList();
+    drawMap();
+    paintStats();
+    paintTracks(world.tracks || []);
+    refreshLoot();
+    refreshLinks();
+    loadDirectory();
+    fillLootAreas();
+  }
+
+  /* profile */
+  $('btnSaveProfile').addEventListener('click', () => {
+    setStatus('profileStatus', 'Saving…');
+    api('/api/admin/profile', {
+      method: 'PUT', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ worldName: $('fWorldName').value, artist: $('fArtist').value, bio: $('fBio').value })
+    }).then((d) => {
+      if (d.ok) { setStatus('profileStatus', 'Saved. Fans see it on their next visit.'); world.name = d.profile.worldName; world.artist = d.profile.artist; }
+      else setStatus('profileStatus', d.error || 'Save failed.', true);
+    }).catch(() => setStatus('profileStatus', 'Could not reach the world.', true));
+  });
+
+  /* world shape: layout, song order, song colors */
+  let shapeOrder = []; // [{id, title, hue}]
+  document.querySelectorAll('input[name=layout]').forEach((el) => el.addEventListener('change', drawMap));
+  function buildShapeList() {
+    shapeOrder = (world.tracks || []).map((t) => ({
+      id: t.id, title: t.title,
+      hue: (t.hue !== null && t.hue !== undefined) ? t.hue : (xmur3('hue|' + t.id)() % 1000) / 1000
+    }));
+    paintShapeList();
+  }
+  function paintShapeList() {
+    const box = $('shapeList');
+    box.textContent = '';
+    if (!shapeOrder.length) {
+      const p = document.createElement('p');
+      p.className = 'hint';
+      p.textContent = 'Upload songs above and they appear here. With no songs the world falls back to plain rolling hills.';
+      box.appendChild(p);
+      return;
+    }
+    shapeOrder.forEach((t, i) => {
+      const row = document.createElement('div');
+      row.className = 'shape-row';
+      const ord = document.createElement('span');
+      ord.className = 'sr-ord';
+      ord.textContent = String(i + 1);
+      const dot = document.createElement('span');
+      dot.className = 'hue-dot';
+      dot.style.background = 'hsl(' + Math.round(t.hue * 360) + ',60%,45%)';
+      const title = document.createElement('span');
+      title.className = 'sr-title';
+      title.textContent = t.title + (i === 0 ? (curLayout() === 'lanes' ? ' (west lane)' : ' (innermost)') : '');
+      const hue = document.createElement('input');
+      hue.type = 'range'; hue.min = 0; hue.max = 100; hue.value = Math.round(t.hue * 100);
+      hue.addEventListener('input', () => {
+        t.hue = Number(hue.value) / 100;
+        dot.style.background = 'hsl(' + Math.round(t.hue * 360) + ',60%,45%)';
+      });
+      hue.addEventListener('change', drawShapePreview);
+      const up = document.createElement('button');
+      up.textContent = '↑'; up.title = 'Move earlier';
+      up.addEventListener('click', () => { if (i > 0) { shapeOrder.splice(i - 1, 0, shapeOrder.splice(i, 1)[0]); paintShapeList(); drawShapePreview(); } });
+      const dn = document.createElement('button');
+      dn.textContent = '↓'; dn.title = 'Move later';
+      dn.addEventListener('click', () => { if (i < shapeOrder.length - 1) { shapeOrder.splice(i + 1, 0, shapeOrder.splice(i, 1)[0]); paintShapeList(); drawShapePreview(); } });
+      row.appendChild(ord); row.appendChild(dot); row.appendChild(title); row.appendChild(hue); row.appendChild(up); row.appendChild(dn);
+      box.appendChild(row);
+    });
+  }
+  function drawShapePreview() {
+    // apply pending order/hues to the local world copy so the map previews them
+    const byId = {};
+    for (const t of world.tracks || []) byId[t.id] = t;
+    world.tracks = shapeOrder.map((t) => Object.assign({}, byId[t.id], { hue: t.hue }));
+    drawMap();
+  }
+  $('btnSaveShape').addEventListener('click', () => {
+    setStatus('areaStatus', 'Saving…');
+    drawShapePreview();
+    api('/api/admin/tracks/reorder', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ids: shapeOrder.map((t) => t.id) })
+    }).then(() => Promise.all(shapeOrder.map((t) =>
+      api('/api/admin/tracks/' + t.id, {
+        method: 'PUT', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ hue: t.hue })
+      })
+    ))).then(() => api('/api/admin/profile', {
+      method: 'PUT', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ layout: curLayout() })
+    })).then((d) => {
+      if (d.ok) { world.layout = d.profile.layout; setStatus('areaStatus', 'Saved. Fans get the new land on their next visit.'); }
+      else setStatus('areaStatus', d.error || 'Save failed.', true);
+    }).catch(() => setStatus('areaStatus', 'Could not reach the world.', true));
+  });
+
+  /* tracks */
+  function paintTracks(tracks) {
+    const tb = $('trackTable').querySelector('tbody');
+    tb.textContent = '';
+    $('trackTable').style.display = tracks.length ? '' : 'none';
+    for (const t of tracks) {
+      const tr = document.createElement('tr');
+      const td1 = document.createElement('td'); td1.textContent = t.title;
+      const td2 = document.createElement('td'); td2.textContent = t.r2_key || (t.url && t.url.startsWith('/api/')) ? 'your Cloudflare' : 'external link';
+      const td3 = document.createElement('td');
+      const del = document.createElement('button');
+      del.textContent = 'remove';
+      del.addEventListener('click', () => {
+        api('/api/admin/tracks/' + t.id, { method: 'DELETE' }).then(() => refreshTracks());
+      });
+      td3.appendChild(del);
+      tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
+      tb.appendChild(tr);
+    }
+  }
+  function refreshTracks() {
+    fetch('/api/world').then((r) => r.json()).then((d) => {
+      if (d && d.ok) { world.tracks = d.tracks; paintTracks(d.tracks); buildShapeList(); drawMap(); }
+    });
+  }
+  $('btnUpload').addEventListener('click', () => {
+    const file = $('tFile').files[0];
+    const title = $('tTitle').value.trim() || (file ? file.name.replace(/\.[^.]+$/, '') : '');
+    if (!$('cRights').checked) { setStatus('trackStatus', 'Tick the rights box first. Only upload music you have the rights to host.', true); return; }
+    if (!file) { setStatus('trackStatus', 'Pick an audio file first.', true); return; }
+    if (file.size > 25 * 1024 * 1024) { setStatus('trackStatus', 'That file is over 25 MB. Export a smaller one.', true); return; }
+    setStatus('trackStatus', 'Uploading…');
+    $('btnUpload').disabled = true;
+    file.arrayBuffer().then((ab) =>
+      api('/api/admin/tracks?title=' + encodeURIComponent(title), {
+        method: 'POST', headers: { 'content-type': file.type || 'audio/mpeg' }, body: ab
+      }).then((d) => {
+        if (!d.ok) throw new Error(d.error || 'upload failed');
+        setStatus('trackStatus', 'Uploaded. Listening to it once so the world can move with it…');
+        return analyzeAudio(ab).then((envData) => {
+          if (envData) {
+            return api('/api/admin/tracks/' + d.id + '/envelope', {
+              method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(envData)
+            });
+          }
+        }).then(() => {
+          setStatus('trackStatus', 'Done. "' + title + '" is now part of your terrain. Shape it below.');
+          $('tTitle').value = ''; $('tFile').value = ''; $('cRights').checked = false;
+          refreshTracks();
+        });
+      })
+    ).catch((e) => setStatus('trackStatus', e.message || 'Upload failed.', true))
+      .finally(() => { $('btnUpload').disabled = false; });
+  });
+
+  /* ── land from anything: picture, words, drawn skyline ──
+     All conversion happens right here in the browser; only the resulting
+     shape (numbers between 0 and 1) is saved to the world. */
+  function smoothArr(a, passes) {
+    let out = a.slice();
+    for (let p = 0; p < (passes || 1); p++) {
+      const nx = out.slice();
+      for (let i = 0; i < out.length; i++) {
+        const l = out[Math.max(0, i - 1)], r = out[Math.min(out.length - 1, i + 1)];
+        nx[i] = (l + out[i] * 2 + r) / 4;
+      }
+      out = nx;
+    }
+    return out;
+  }
+  function normalizeArr(a) {
+    const sorted = a.slice().sort((x, y) => x - y);
+    const p95 = sorted[Math.floor(sorted.length * 0.95)] || 1;
+    return a.map((v) => clamp(v / p95, 0, 1));
+  }
+  function npDurVal() { return Number($('npDur').value) || 120; }
+  function createShapeTrack(title, envelope, hueSuggestion) {
+    setStatus('npStatus', 'Raising the land…');
+    return api('/api/admin/tracks', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ title, envelope, hue: hueSuggestion })
+    }).then((d) => {
+      if (!d.ok) throw new Error(d.error || 'that did not save');
+      setStatus('npStatus', 'Done. "' + title + '" is part of your terrain now. Order and color it below.');
+      $('npTitle').value = '';
+      refreshTracks();
+    }).catch((e) => setStatus('npStatus', e.message || 'That did not save.', true));
+  }
+  function npTitleOr(fallback) { return $('npTitle').value.trim() || fallback; }
+
+  $('btnFromImage').addEventListener('click', () => {
+    const file = $('npImage').files[0];
+    if (!file) { setStatus('npStatus', 'Pick a picture first.', true); return; }
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      try {
+        const cv = document.createElement('canvas');
+        cv.width = 300; cv.height = 60;
+        const c = cv.getContext('2d');
+        c.drawImage(img, 0, 0, 300, 60);
+        const data = c.getImageData(0, 0, 300, 60).data;
+        const env = new Array(300).fill(0);
+        let satBest = -1, hue = null;
+        for (let x = 0; x < 300; x++) {
+          let sum = 0;
+          for (let y = 0; y < 60; y++) {
+            const o = (y * 300 + x) * 4;
+            const r = data[o] / 255, g = data[o + 1] / 255, b = data[o + 2] / 255;
+            sum += (r + g + b) / 3;
+            const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+            const s = mx === 0 ? 0 : (mx - mn) / mx;
+            if (s * mx > satBest && mx < 0.95) {
+              satBest = s * mx;
+              const d2 = mx - mn;
+              let h = 0;
+              if (d2 > 0) {
+                if (mx === r) h = ((g - b) / d2) % 6;
+                else if (mx === g) h = (b - r) / d2 + 2;
+                else h = (r - g) / d2 + 4;
+              }
+              hue = ((h * 60 + 360) % 360) / 360;
+            }
+          }
+          env[x] = sum / 60;
+        }
+        URL.revokeObjectURL(url);
+        createShapeTrack(npTitleOr(file.name.replace(/\.[^.]+$/, '')),
+          { dur: npDurVal(), env: normalizeArr(smoothArr(env, 2)), beats: [] }, hue);
+      } catch (e) { setStatus('npStatus', 'Could not read that picture. Try another one.', true); }
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); setStatus('npStatus', 'Could not read that picture.', true); };
+    img.src = url;
+  });
+
+  $('btnFromWords').addEventListener('click', () => {
+    const text = $('npWords').value.trim();
+    if (text.split(/\s+/).length < 8) { setStatus('npStatus', 'Give it at least a few sentences to work with.', true); return; }
+    const words = text.split(/\s+/);
+    const raw = words.map((w) => clamp(w.replace(/[^\p{L}\p{N}]/gu, '').length / 9, 0.12, 1));
+    // resample the word rhythm into 300 bins
+    const env = new Array(300);
+    for (let i = 0; i < 300; i++) {
+      const f = i / 300 * (raw.length - 1);
+      const a = raw[Math.floor(f)], b = raw[Math.min(raw.length - 1, Math.floor(f) + 1)];
+      env[i] = lerp(a, b, f - Math.floor(f));
+    }
+    const dur = npDurVal();
+    const beats = [];
+    words.forEach((w, i) => {
+      if (/[.!?]$/.test(w) && beats.length < 400) beats.push(Math.round(i / words.length * dur * 100) / 100);
+    });
+    createShapeTrack(npTitleOr('Words'), { dur, env: normalizeArr(smoothArr(env, 3)), beats }, null);
+  });
+
+  /* drawn skyline */
+  const npCv = $('npDraw'), npCtx = npCv.getContext('2d');
+  let npHeights = new Array(300).fill(0.35), npDrawing = false, npLastX = -1;
+  function npRender() {
+    npCtx.clearRect(0, 0, 300, 80);
+    npCtx.fillStyle = 'rgba(242,163,60,0.25)';
+    npCtx.strokeStyle = '#f2a33c';
+    npCtx.lineWidth = 1.5;
+    npCtx.beginPath();
+    npCtx.moveTo(0, 80 - npHeights[0] * 76);
+    for (let x = 1; x < 300; x++) npCtx.lineTo(x, 80 - npHeights[x] * 76);
+    npCtx.stroke();
+    npCtx.lineTo(300, 80); npCtx.lineTo(0, 80); npCtx.closePath();
+    npCtx.fill();
+  }
+  npRender();
+  function npPoint(e) {
+    const r = npCv.getBoundingClientRect();
+    const x = clamp(Math.round((e.clientX - r.left) / r.width * 299), 0, 299);
+    const v = clamp(1 - (e.clientY - r.top) / r.height, 0, 1);
+    if (npLastX >= 0 && Math.abs(x - npLastX) > 1) {
+      const from = Math.min(npLastX, x), to = Math.max(npLastX, x);
+      const v0 = npHeights[npLastX];
+      for (let i = from; i <= to; i++) npHeights[i] = lerp(v0, v, (i - from) / Math.max(1, to - from));
+    } else npHeights[x] = v;
+    npLastX = x;
+    npRender();
+  }
+  npCv.addEventListener('pointerdown', (e) => { npDrawing = true; npLastX = -1; npPoint(e); npCv.setPointerCapture(e.pointerId); });
+  npCv.addEventListener('pointermove', (e) => { if (npDrawing) npPoint(e); });
+  npCv.addEventListener('pointerup', () => { npDrawing = false; npLastX = -1; });
+  npCv.addEventListener('pointercancel', () => { npDrawing = false; npLastX = -1; });
+  $('btnDrawClear').addEventListener('click', () => { npHeights = new Array(300).fill(0.35); npRender(); });
+  $('btnFromDraw').addEventListener('click', () => {
+    createShapeTrack(npTitleOr('My skyline'), { dur: npDurVal(), env: smoothArr(npHeights, 1), beats: [] }, null);
+  });
+
+  /* ── analytics: aggregates from your own D1 ── */
+  function paintStats() {
+    api('/api/admin/stats?days=30').then((d) => {
+      if (!d.ok) { setStatus('statStatus', d.error || 'Could not load the numbers.', true); return; }
+      const sum = {}, byDay = {};
+      for (const r of d.stats) {
+        sum[r.metric] = (sum[r.metric] || 0) + r.value;
+        if (r.metric === 'visits') byDay[r.day] = r.value;
+      }
+      const tiles = $('statTiles');
+      tiles.textContent = '';
+      const tile = (v, label) => {
+        const el = document.createElement('div');
+        el.className = 'st';
+        const b = document.createElement('b'); b.textContent = String(v);
+        const sp = document.createElement('span'); sp.textContent = label;
+        el.appendChild(b); el.appendChild(sp);
+        tiles.appendChild(el);
+      };
+      tile(sum.visits || 0, 'visits · 30 days');
+      tile(sum.uniques || 0, 'fans');
+      tile(Math.round((sum.minutes || 0) / 60 * 10) / 10 + 'h', 'time in world');
+      tile(sum.finds || 0, 'chests dug up');
+      tile(d.emails, 'emails with you');
+      // last 14 days of visits as bars
+      const bars = $('statBars');
+      bars.textContent = '';
+      const days = [];
+      for (let i = 13; i >= 0; i--) days.push(new Date(Date.now() - i * 86400e3).toISOString().slice(0, 10));
+      const max = Math.max(1, ...days.map((day) => byDay[day] || 0));
+      for (const day of days) {
+        const bar = document.createElement('i');
+        bar.style.height = Math.round((byDay[day] || 0) / max * 100) + '%';
+        bar.title = day + ': ' + (byDay[day] || 0) + ' visits';
+        bars.appendChild(bar);
+      }
+      // pieces walked end to end
+      const tb = $('statSongs').querySelector('tbody');
+      tb.textContent = '';
+      const titleById = {};
+      for (const t of world.tracks || []) titleById[t.id] = t.title;
+      const walks = Object.keys(sum).filter((m) => m.startsWith('complete|'))
+        .map((m) => ({ title: titleById[m.slice(9)] || 'a removed piece', n: sum[m] }))
+        .sort((a, b) => b.n - a.n);
+      $('statSongs').style.display = walks.length ? '' : 'none';
+      for (const wk of walks) {
+        const tr = document.createElement('tr');
+        const td1 = document.createElement('td'); td1.textContent = wk.title;
+        const td2 = document.createElement('td'); td2.textContent = wk.n + (wk.n === 1 ? ' time' : ' times');
+        tr.appendChild(td1); tr.appendChild(td2);
+        tb.appendChild(tr);
+      }
+    }).catch(() => setStatus('statStatus', 'Could not reach the world.', true));
+  }
+  $('btnExportEmails').addEventListener('click', () => {
+    fetch('/api/admin/emails?format=csv', { headers: { authorization: 'Bearer ' + token } })
+      .then((r) => { if (!r.ok) throw new Error('no'); return r.blob(); })
+      .then((blob) => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'tuneland-fans.csv';
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      })
+      .catch(() => setStatus('statStatus', 'Export failed. Reload and try again.', true));
+  });
+
+  /* ── campaign templates: the same loot form, prefilled with a plan ── */
+  function nextFridayNoon() {
+    const d = new Date();
+    d.setDate(d.getDate() + ((5 - d.getDay() + 7) % 7 || 7));
+    d.setHours(12, 0, 0, 0);
+    return d;
+  }
+  function toLocalInput(d) {
+    const p = (n) => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+  function applyTemplate(fields, note) {
+    for (const k in fields) $(k).value = fields[k];
+    setStatus('buryStatus', note);
+  }
+  $('tplRelease').addEventListener('click', () => {
+    const start = nextFridayNoon();
+    applyTemplate({
+      lTitle: 'Release day drop', lMsg: 'You found it on day one. This one is for the early ones.',
+      lUrl: '', lCode: 'DAYONE', lMax: '50',
+      lStart: toLocalInput(start), lEnd: toLocalInput(new Date(start.getTime() + 72 * 3600e3)),
+      lEmailMode: 'optional'
+    }, 'Release day: first 50 fans, live for the 72 hours from Friday noon. Put your release link in, pick a spot, bury it.');
+  });
+  $('tplTour').addEventListener('click', () => {
+    applyTemplate({
+      lTitle: 'Tour stop: CITY', lMsg: 'See you at the show. Flash this at the merch table.',
+      lUrl: '', lCode: 'TOURFAN', lMax: '25', lStart: '', lEnd: '', lEmailMode: 'off'
+    }, 'Tour trail: bury one of these per city, set each to appear on that show date. Rename CITY each time.');
+  });
+  $('tplPresave').addEventListener('click', () => {
+    applyTemplate({
+      lTitle: 'Presave the next single', lMsg: 'It is buried here first. Presave and you hear it the second it lands.',
+      lUrl: 'https://', lCode: '', lMax: '0', lStart: '', lEnd: '', lEmailMode: 'required'
+    }, 'Presave hunt: paste your presave link, and fans leave an email to open it. Your list grows with every dig.');
+  });
+
+  /* loot */
+  function fillLootAreas() {
+    const sel = $('lootArea');
+    sel.textContent = '';
+    for (let ai = 0; ai < 9; ai++) {
+      const o = document.createElement('option');
+      o.value = areaKeyOf(ai);
+      const linked = AREA_CORNER[ai] !== undefined && (world.links || []).some((l) => l.corner === AREA_CORNER[ai]);
+      o.textContent = AREA_NAMES[ai] + (linked ? ' (shared with a linked world)' : '');
+      sel.appendChild(o);
+    }
+  }
+  function refreshLoot() {
+    api('/api/admin/loot').then((d) => {
+      if (!d.ok) return;
+      adminLoot = d.loot || [];
+      const tb = $('lootTable').querySelector('tbody');
+      tb.textContent = '';
+      $('lootTable').style.display = adminLoot.length ? '' : 'none';
+      const now = Date.now();
+      for (const l of adminLoot) {
+        const tr = document.createElement('tr');
+        const td1 = document.createElement('td');
+        let what = l.title + (l.code ? ' · code' : '') + (l.url ? ' · link' : '');
+        if (l.starts_at && l.starts_at > now) what += ' · appears ' + new Date(l.starts_at).toLocaleString();
+        else if (l.ends_at) what += (l.ends_at > now ? ' · until ' : ' · expired ') + new Date(l.ends_at).toLocaleString();
+        td1.textContent = what;
+        const td2 = document.createElement('td'); td2.textContent = l.area_key.startsWith('own:') ? AREA_NAMES[Number(l.area_key.slice(4))] : 'shared arena';
+        const td3 = document.createElement('td'); td3.textContent = l.claims + (l.max_claims ? ' / ' + l.max_claims : '');
+        const td4 = document.createElement('td');
+        const del = document.createElement('button');
+        del.textContent = 'dig up';
+        del.addEventListener('click', () => api('/api/admin/loot/' + l.id, { method: 'DELETE' }).then(refreshLoot).then(drawMap));
+        td4.appendChild(del);
+        tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3); tr.appendChild(td4);
+        tb.appendChild(tr);
+      }
+      drawMap();
+    });
+  }
+  function localToTs(v) {
+    if (!v) return null;
+    const t = new Date(v).getTime();
+    return Number.isFinite(t) ? t : null;
+  }
+  $('btnBury').addEventListener('click', () => {
+    if (!lootSpot) { setStatus('buryStatus', 'Tap the map to pick a spot first.', true); return; }
+    const startsAt = localToTs($('lStart').value), endsAt = localToTs($('lEnd').value);
+    if (startsAt && endsAt && endsAt <= startsAt) { setStatus('buryStatus', 'It would disappear before it appears. Check the times.', true); return; }
+    setStatus('buryStatus', 'Burying…');
+    api('/api/admin/loot', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        areaKey: $('lootArea').value, x: lootSpot.x, z: lootSpot.z,
+        title: $('lTitle').value, message: $('lMsg').value,
+        url: $('lUrl').value, code: $('lCode').value,
+        maxClaims: Number($('lMax').value) || 0,
+        startsAt, endsAt,
+        emailMode: $('lEmailMode').value
+      })
+    }).then((d) => {
+      if (d.ok) {
+        setStatus('buryStatus', 'Buried. Fans with a radar will find it.');
+        $('lTitle').value = ''; $('lMsg').value = ''; $('lUrl').value = ''; $('lCode').value = '';
+        $('lStart').value = ''; $('lEnd').value = '';
+        $('lEmailMode').value = 'off';
+        lootSpot = null;
+        refreshLoot();
+        paintStats();
+      } else setStatus('buryStatus', d.error || 'Burying failed.', true);
+    }).catch(() => setStatus('buryStatus', 'Could not reach the world.', true));
+  });
+
+  /* register + links */
+  $('btnRegister').addEventListener('click', () => {
+    setStatus('regStatus', 'Registering with the hub…');
+    api('/api/admin/register', { method: 'POST' }).then((d) => {
+      if (d.ok) { setStatus('regStatus', 'You are on the Tuneland map.'); $('pillReg').textContent = 'on the tuneland map'; $('pillReg').classList.add('ok'); loadDirectory(); }
+      else setStatus('regStatus', d.error || 'The hub said no. Try again in a minute.', true);
+    }).catch(() => setStatus('regStatus', 'Could not reach the hub.', true));
+  });
+  function loadDirectory() {
+    fetch(REGISTRY + '/worlds').then((r) => r.json()).then((d) => {
+      const sel = $('linkTarget');
+      sel.textContent = '';
+      const worlds = (d && d.worlds || []).filter((w) => w.id !== world.worldId);
+      if (!worlds.length) {
+        const o = document.createElement('option');
+        o.value = ''; o.textContent = 'No other worlds registered yet';
+        sel.appendChild(o);
+        return;
+      }
+      for (const w of worlds) {
+        const o = document.createElement('option');
+        o.value = w.id; o.textContent = w.name + ' · ' + w.artist;
+        sel.appendChild(o);
+      }
+    }).catch(() => {
+      const sel = $('linkTarget');
+      sel.textContent = '';
+      const o = document.createElement('option');
+      o.value = ''; o.textContent = 'The hub is unreachable right now';
+      sel.appendChild(o);
+    });
+  }
+  $('btnLinkReq').addEventListener('click', () => {
+    const target = $('linkTarget').value;
+    if (!target) { setStatus('linkStatus', 'Pick a world to link with.', true); return; }
+    setStatus('linkStatus', 'Sending the request…');
+    api('/api/admin/links/request', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ targetId: target, corner: Number($('linkCorner').value) })
+    }).then((d) => {
+      if (d.ok) { setStatus('linkStatus', 'Request sent. It appears in their dashboard for approval.'); refreshLinks(); }
+      else setStatus('linkStatus', d.error || 'Request failed.', true);
+    }).catch(() => setStatus('linkStatus', 'Could not reach the hub.', true));
+  });
+  function refreshLinks() {
+    api('/api/admin/links').then((d) => {
+      if (!d.ok) return;
+      const links = d.links || [];
+      const tb = $('linkTable').querySelector('tbody');
+      tb.textContent = '';
+      $('linkTable').style.display = links.length ? '' : 'none';
+      const cornerName = { 1: 'top-left', 3: 'top-right', 5: 'bottom-right', 7: 'bottom-left' };
+      for (const l of links) {
+        const tr = document.createElement('tr');
+        const td1 = document.createElement('td');
+        td1.textContent = 'Your ' + (cornerName[l.corner] || '?') + ' corner ↔ ' + ((l.other && l.other.name) || 'a world');
+        const td2 = document.createElement('td'); td2.textContent = l.status + (l.incoming && l.status === 'pending' ? ' · they asked you' : '');
+        const td3 = document.createElement('td');
+        if (l.status === 'pending' && l.incoming) {
+          const yes = document.createElement('button');
+          yes.textContent = 'approve'; yes.style.color = '#f2a33c';
+          yes.addEventListener('click', () => respond(l.id, true));
+          const no = document.createElement('button');
+          no.textContent = 'decline';
+          no.addEventListener('click', () => respond(l.id, false));
+          td3.appendChild(yes); td3.appendChild(document.createTextNode(' ')); td3.appendChild(no);
+        }
+        tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
+        tb.appendChild(tr);
+      }
+      // refresh world.links for the map + loot keys
+      world.links = links.filter((l) => l.status === 'active');
+      drawMap();
+      fillLootAreas();
+    });
+  }
+  function respond(linkId, accept) {
+    api('/api/admin/links/respond', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ linkId, accept })
+    }).then(() => refreshLinks());
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>

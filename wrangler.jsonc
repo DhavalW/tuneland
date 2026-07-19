@@ -1,0 +1,47 @@
+// Tuneland artist world: static game + dashboard assets, one Worker API,
+// a D1 database (world state), an R2 bucket (the artist's songs) and a
+// presence Durable Object.
+//
+// Deployed via the "Deploy to Cloudflare" flow, which provisions the D1
+// database and R2 bucket automatically and writes their real IDs into the
+// artist's copy of this file. Nothing here needs hand-editing.
+//
+// NOTE for maintainers: artist copies keep their own version of this file
+// (the sync workflow never overwrites it), because it carries per-artist
+// resource IDs. Changing bindings here only affects new deployments.
+{
+  "name": "tuneland-world",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-06-10",
+  "assets": {
+    "directory": "public",
+    "binding": "ASSETS",
+    "html_handling": "auto-trailing-slash"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "tuneland-db",
+      "database_id": ""
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "SONGS",
+      "bucket_name": "tuneland-songs"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "PRESENCE", "class_name": "PresenceHub" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["PresenceHub"] }
+  ],
+  "vars": {
+    // The Tuneland hub: world directory, corner links, superuser key.
+    "REGISTRY_BASE": "https://midhrami.com/tuneland/api"
+  },
+  "observability": { "enabled": true }
+}
