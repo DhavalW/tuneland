@@ -198,7 +198,12 @@ Three principals, no accounts anywhere:
   signed with that key (headers: timestamp + signature over
   method|path|body-hash|timestamp), verifying against the registry's
   published public key (cached in D1, 1-hour TTL). So the superuser can do
-  everything an artist can, in any world, and artists configure nothing.
+  everything an artist can, in any world and its shared arenas, with no
+  artist approval involved: profile and shape, songs (upload included),
+  loot, claim resets, and corner links. Links are force-created or cut
+  through signed registry endpoints that bypass the artist handshake,
+  replacing whatever occupied the corners. The agreement discloses this
+  access; artists consent to it at signup and configure nothing.
 - **World ↔ registry**: at registration the registry hands the world a
   secret (stored hashed registry-side, plaintext in the world's D1). Link
   requests and heartbeats are authenticated with it. Registration is
