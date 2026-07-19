@@ -60,6 +60,25 @@ Full walkthrough with pictures: https://midhrami.com/tuneland/
   the same area.
 - Crossing: if you link a corner with another artist, fans walk from your
   world into theirs with no loading screen.
+- A fan passport: chests found (with "finder #7 of this drop" ranks),
+  worlds visited and crowned, day streaks from a daily echo chest, tamed
+  glooms, kilometers wandered, and a share card to post.
+- Listening quests: standing through a whole piece marks it walked, and
+  walking every piece crowns your world.
+- Photo mode and race links: fans snap framed shots that link friends to
+  the exact spot, and set time trials a friend's ghost can be raced on.
+
+## What you get as the artist
+
+- A numbers card in your dashboard: visits, fans, hours in world, which
+  pieces get walked end to end, chest counts, all measured in your own
+  Cloudflare, nobody else's.
+- Email loot: drops that offer (or require) an email signup to open.
+  Addresses land in your own storage and export as CSV. Your list, yours.
+- Campaign templates: release day, tour stop, and presave hunt prefill
+  the loot form with a working plan.
+- A public spot on the map of Tuneland at midhrami.com/tuneland/map/ once
+  you register.
 
 ## Your music, your rights
 

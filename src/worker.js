@@ -44,8 +44,25 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS claims (
      loot_id TEXT NOT NULL,
      fan_id TEXT NOT NULL,
+     fan_name TEXT,
+     finder INTEGER,
      claimed_at INTEGER,
      PRIMARY KEY (loot_id, fan_id)
+   )`,
+  `CREATE INDEX IF NOT EXISTS idx_claims_fan ON claims (fan_id)`,
+  `CREATE TABLE IF NOT EXISTS emails (
+     email TEXT PRIMARY KEY,
+     fan_id TEXT,
+     fan_name TEXT,
+     loot_id TEXT,
+     consent_at INTEGER
+   )`,
+  `CREATE INDEX IF NOT EXISTS idx_emails_fan ON emails (fan_id)`,
+  `CREATE TABLE IF NOT EXISTS stats_daily (
+     day TEXT NOT NULL,
+     metric TEXT NOT NULL,
+     value INTEGER DEFAULT 0,
+     PRIMARY KEY (day, metric)
    )`
 ];
 
@@ -54,10 +71,14 @@ const ALTERS = [
   `ALTER TABLE tracks ADD COLUMN ord INTEGER`,
   `ALTER TABLE tracks ADD COLUMN hue REAL`,
   `ALTER TABLE loot ADD COLUMN starts_at INTEGER`,
-  `ALTER TABLE loot ADD COLUMN ends_at INTEGER`
+  `ALTER TABLE loot ADD COLUMN ends_at INTEGER`,
+  `ALTER TABLE loot ADD COLUMN email_mode TEXT`,
+  `ALTER TABLE claims ADD COLUMN fan_name TEXT`,
+  `ALTER TABLE claims ADD COLUMN finder INTEGER`
 ];
 
 let schemaReady = false;
+let lbCache = null; // leaderboard memo, per isolate
 async function ensureSchema(env) {
   if (schemaReady) return;
   await env.DB.batch(SCHEMA.map((s) => env.DB.prepare(s)));
@@ -308,9 +329,11 @@ async function handleApi(request, env, ctx) {
     const now = Date.now();
     if (loot.starts_at && loot.starts_at > now) return err('gone', 404);
     if (loot.ends_at && loot.ends_at <= now) return err('gone', 404);
+    const fanName = str(body.fanName, '', 24);
     const already = await env.DB.prepare(
-      'SELECT 1 AS one FROM claims WHERE loot_id = ? AND fan_id = ?'
+      'SELECT finder FROM claims WHERE loot_id = ? AND fan_id = ?'
     ).bind(loot.id, body.fanId).first();
+    let finder = already ? already.finder : null;
     if (!already) {
       if (loot.max_claims > 0 && loot.claims >= loot.max_claims) return err('gone', 404);
       // count the claim atomically; the WHERE re-checks every scarcity rule
@@ -322,23 +345,97 @@ async function handleApi(request, env, ctx) {
            AND (ends_at IS NULL OR ends_at > ?2)`
       ).bind(loot.id, now).run();
       if (!res.meta || !res.meta.changes) return err('gone', 404);
+      finder = loot.claims + 1; // you were finder number N of this drop
       await env.DB.prepare(
-        'INSERT OR IGNORE INTO claims (loot_id, fan_id, claimed_at) VALUES (?, ?, ?)'
-      ).bind(loot.id, body.fanId, now).run();
+        'INSERT OR IGNORE INTO claims (loot_id, fan_id, fan_name, finder, claimed_at) VALUES (?, ?, ?, ?, ?)'
+      ).bind(loot.id, body.fanId, fanName, finder, now).run();
     }
+    // email-gated drops: contents wait until the fan leaves an email with
+    // this artist (once per world; a fan already on the list sails through)
+    const mode = loot.email_mode === 'required' || loot.email_mode === 'optional' ? loot.email_mode : 'off';
+    let onList = false;
+    if (mode !== 'off') {
+      onList = !!(await env.DB.prepare('SELECT 1 AS one FROM emails WHERE fan_id = ? LIMIT 1').bind(body.fanId).first());
+    }
+    const withhold = mode === 'required' && !onList;
     return json({
       ok: true,
       loot: {
         id: loot.id,
         title: loot.title,
         message: loot.message,
-        url: loot.url,
-        code: loot.code,
+        url: withhold ? null : loot.url,
+        code: withhold ? null : loot.code,
         remaining: loot.max_claims > 0 ? Math.max(0, loot.max_claims - loot.claims - (already ? 0 : 1)) : null,
         endsAt: loot.ends_at || null,
+        finder,
+        emailAsk: mode !== 'off' && !onList ? mode : null,
         repeat: !!already
       }
     });
+  }
+
+  /* email-capture: the fan chooses to leave an email with THIS artist;
+     it lives in the artist's own D1, nowhere else */
+  if (path === '/api/loot/email' && method === 'POST') {
+    let b = null;
+    try { b = await request.json(); } catch (e) {}
+    if (!b || typeof b.lootId !== 'string' || typeof b.fanId !== 'string' || b.consent !== true) return err('bad request');
+    const email = str(b.email, '', 254).toLowerCase();
+    if (!/^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,24}$/.test(email)) return err('that email does not look right');
+    const claim = await env.DB.prepare('SELECT 1 AS one FROM claims WHERE loot_id = ? AND fan_id = ?')
+      .bind(b.lootId, b.fanId).first();
+    if (!claim) return err('dig the chest up first', 403);
+    await env.DB.prepare(
+      'INSERT OR IGNORE INTO emails (email, fan_id, fan_name, loot_id, consent_at) VALUES (?, ?, ?, ?, ?)'
+    ).bind(email, b.fanId, str(b.fanName, '', 24), b.lootId, Date.now()).run();
+    const loot = await env.DB.prepare('SELECT url, code FROM loot WHERE id = ?').bind(b.lootId).first();
+    return json({ ok: true, loot: { url: loot ? loot.url : null, code: loot ? loot.code : null } });
+  }
+
+  /* anonymous, batched play stats: a handful of aggregate rows per session,
+     sent as one beacon, all in the artist's D1 */
+  if (path === '/api/stats' && method === 'POST') {
+    let b = null;
+    try { b = JSON.parse(await request.text()); } catch (e) {}
+    if (!b) return err('bad stats');
+    const day = new Date().toISOString().slice(0, 10);
+    const inc = [];
+    const add = (metric, n) => {
+      n = Math.max(0, Math.min(1000, Math.round(Number(n) || 0)));
+      if (n > 0) inc.push(env.DB.prepare(
+        `INSERT INTO stats_daily (day, metric, value) VALUES (?, ?, ?)
+         ON CONFLICT(day, metric) DO UPDATE SET value = value + excluded.value`
+      ).bind(day, metric, n));
+    };
+    add('visits', Math.min(1, b.v));
+    add('uniques', Math.min(1, b.u));
+    add('minutes', Math.min(60, b.m));
+    add('finds', Math.min(50, b.f));
+    if (Array.isArray(b.c)) {
+      for (const id of b.c.slice(0, 12)) {
+        if (typeof id === 'string' && /^[\w-]{1,32}$/.test(id)) add('complete|' + id, 1);
+      }
+    }
+    if (inc.length) await env.DB.batch(inc);
+    return json({ ok: true });
+  }
+
+  if (path === '/api/leaderboard' && method === 'GET') {
+    // in-isolate cache: Cache API is a no-op on workers.dev, memory is free
+    if (lbCache && Date.now() - lbCache.at < 60e3) return json(lbCache.data);
+    const rows = await env.DB.prepare(
+      `SELECT fan_id, MAX(fan_name) AS name, COUNT(*) AS finds, MIN(finder) AS best
+       FROM claims GROUP BY fan_id ORDER BY finds DESC, best ASC LIMIT 10`
+    ).all();
+    const data = {
+      ok: true,
+      top: (rows.results || []).map((r) => ({
+        name: (r.name || 'a quiet fan').slice(0, 24), finds: r.finds, best: r.best
+      }))
+    };
+    lbCache = { at: Date.now(), data };
+    return json(data);
   }
 
   if (path.startsWith('/api/songs/') && method === 'GET') {
@@ -591,6 +688,9 @@ async function handleAdmin(request, env, ctx, path, method, who, bodyBytes, url)
       startsAt, endsAt,
       who, Date.now()
     ).run();
+    if (b.emailMode === 'optional' || b.emailMode === 'required') {
+      await env.DB.prepare('UPDATE loot SET email_mode = ? WHERE id = ?').bind(b.emailMode, id).run();
+    }
     return json({ ok: true, id });
   }
 
@@ -599,6 +699,43 @@ async function handleAdmin(request, env, ctx, path, method, who, bodyBytes, url)
     await env.DB.prepare('DELETE FROM loot WHERE id = ?').bind(lootM[1]).run();
     await env.DB.prepare('DELETE FROM claims WHERE loot_id = ?').bind(lootM[1]).run();
     return json({ ok: true });
+  }
+
+  if (path === '/api/admin/stats' && method === 'GET') {
+    const days = Math.min(90, Math.max(1, Number(url.searchParams.get('days')) || 30));
+    const since = new Date(Date.now() - days * 86400e3).toISOString().slice(0, 10);
+    const rows = await env.DB.prepare(
+      'SELECT day, metric, value FROM stats_daily WHERE day >= ? ORDER BY day'
+    ).bind(since).all();
+    const lootRows = await env.DB.prepare(
+      'SELECT id, title, claims, max_claims, email_mode FROM loot ORDER BY claims DESC LIMIT 50'
+    ).all();
+    const emailCount = await env.DB.prepare('SELECT COUNT(*) AS n FROM emails').first();
+    return json({
+      ok: true,
+      stats: rows.results || [],
+      loot: lootRows.results || [],
+      emails: emailCount ? emailCount.n : 0
+    });
+  }
+
+  if (path === '/api/admin/emails' && method === 'GET') {
+    const rows = await env.DB.prepare(
+      'SELECT email, fan_name, consent_at FROM emails ORDER BY consent_at DESC LIMIT 10000'
+    ).all();
+    if (url.searchParams.get('format') === 'csv') {
+      const esc = (v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+      const csv = 'email,name,consented_at\n' + (rows.results || []).map((r) =>
+        [esc(r.email), esc(r.fan_name), esc(new Date(r.consent_at).toISOString())].join(',')
+      ).join('\n');
+      return new Response(csv, {
+        headers: Object.assign({
+          'content-type': 'text/csv',
+          'content-disposition': 'attachment; filename="tuneland-fans.csv"'
+        }, corsHeaders())
+      });
+    }
+    return json({ ok: true, emails: rows.results || [] });
   }
 
   if (path === '/api/admin/register' && method === 'POST') {

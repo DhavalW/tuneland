@@ -65,6 +65,50 @@
     (crypto.getRandomValues ? crypto.getRandomValues(b) : b.forEach((_, i) => { b[i] = Math.random() * 256; }));
     return [...b].map((x) => x.toString(16).padStart(2, '0')).join('');
   }
+  function b64uEncode(bytes) {
+    let s = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  function b64uDecode(str) {
+    const b = atob(str.replace(/-/g, '+').replace(/_/g, '/'));
+    const u = new Uint8Array(b.length);
+    for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i);
+    return u;
+  }
+  const jsonToB64u = (obj) => b64uEncode(new TextEncoder().encode(JSON.stringify(obj)));
+  const b64uToJson = (str) => JSON.parse(new TextDecoder().decode(b64uDecode(str)));
+  /* race paths: [x,z] samples quantized to decimeters, delta-encoded */
+  function encodePath(samples) {
+    const n = Math.min(samples.length, 240);
+    if (!n) return '';
+    const buf = new Int16Array(n * 2);
+    let px = 0, pz = 0;
+    for (let i = 0; i < n; i++) {
+      const qx = Math.round(clamp(samples[i][0], 0, 288) * 10);
+      const qz = Math.round(clamp(samples[i][1], 0, 288) * 10);
+      buf[i * 2] = qx - px; buf[i * 2 + 1] = qz - pz;
+      px = qx; pz = qz;
+    }
+    return b64uEncode(new Uint8Array(buf.buffer, 0, n * 4));
+  }
+  function decodePath(str) {
+    try {
+      if (typeof str !== 'string' || !str) return null;
+      const u = b64uDecode(str);
+      const nb = u.byteLength - (u.byteLength % 4);
+      if (nb < 8) return null;
+      const v = new Int16Array(u.buffer.slice(0, nb));
+      const out = [];
+      let px = 0, pz = 0;
+      for (let i = 0; i + 1 < v.length; i += 2) {
+        px += v[i]; pz += v[i + 1];
+        out.push([px / 10, pz / 10]);
+      }
+      return out.length ? out : null;
+    } catch (e) { return null; }
+  }
+
   function fetchJson(url, opts, ms) {
     return new Promise((resolve, reject) => {
       const ctrl = window.AbortController ? new AbortController() : null;
@@ -100,6 +144,62 @@
     return true;
   }
   const isFriend = (id) => friends.some((f) => f.id === id);
+
+  /* ═══════════ fan passport (all local, all yours) ═══════════ */
+  const PP = {
+    get() { return store.get('pp', { km: 0, tamed: 0, echoes: 0, streak: 0, lastEcho: '', bestFinder: 0 }); },
+    set(pp) { store.set('pp', pp); },
+    bump(k, n) { const pp = this.get(); pp[k] = (pp[k] || 0) + n; this.set(pp); return pp; }
+  };
+  function rememberVisit(worldId, name) {
+    const v = store.get('visited', {});
+    v[worldId] = name;
+    store.set('visited', v);
+  }
+  function rememberFind(entry) {
+    const log = store.get('foundLog', []);
+    log.unshift(entry);
+    store.set('foundLog', log.slice(0, 100));
+    if (entry.f) {
+      const pp = PP.get();
+      if (!pp.bestFinder || entry.f < pp.bestFinder) { pp.bestFinder = entry.f; PP.set(pp); }
+    }
+  }
+  const questsDone = () => store.get('questsDone', {}); // {worldId: {songId: true}}
+  const crowns = () => store.get('crowns', {});         // {worldId: worldName}
+
+  /* ═══════════ play stats: one tiny beacon per session, to the world's
+     own Worker (the artist's budget, the artist's numbers) ═══════════ */
+  const Stats = {
+    target: null, v: 0, u: 0, secs: 0, c: [], f: 0,
+    begin(origin, worldId) {
+      if (this.target && this.target !== origin) this.flush();
+      this.target = origin;
+      this.v = 1;
+      const dayKey = 'seen_' + worldId;
+      const today = new Date().toISOString().slice(0, 10);
+      if (store.get(dayKey, '') !== today) { this.u = 1; store.set(dayKey, today); }
+    },
+    tick(dt) { if (this.target) this.secs += dt; },
+    complete(id) { if (this.c.indexOf(id) < 0) this.c.push(id); },
+    find() { this.f++; },
+    flush() {
+      if (!this.target || W.cfg && W.cfg.demo) { this.reset(); return; }
+      const mins = Math.floor(this.secs / 60);
+      if (!this.v && !this.u && !mins && !this.c.length && !this.f) return;
+      const body = JSON.stringify({ v: this.v, u: this.u, m: mins, c: this.c.slice(0, 12), f: this.f });
+      try {
+        if (!(navigator.sendBeacon && navigator.sendBeacon(this.target + '/api/stats', body))) {
+          fetch(this.target + '/api/stats', { method: 'POST', body, keepalive: true }).catch(() => {});
+        }
+      } catch (e) {}
+      this.secs -= mins * 60;
+      this.v = 0; this.u = 0; this.c = []; this.f = 0;
+    },
+    reset() { this.v = 0; this.u = 0; this.secs = 0; this.c = []; this.f = 0; }
+  };
+  addEventListener('visibilitychange', () => { if (document.hidden) Stats.flush(); });
+  setInterval(() => { if (S.playing) Stats.flush(); }, 4 * 60e3);
 
   /* ═══════════ world config ═══════════ */
   const OWN_ORIGIN = location.origin;
@@ -162,7 +262,7 @@
 
   /* ═══════════ world math ═══════════ */
   const AREA = 96, GRID = 3, SXZ = AREA * GRID, SY = 48, SEA = 12, CS = 16, CGRID = SXZ / CS;
-  const AIR = 0, GRASS = 1, DIRT = 2, STONE = 3, SAND = 4, WATER = 5, WOOD = 6, LEAF = 7, CHEST = 8, ROCK = 9, SNOW = 10, PILLAR = 11, MARKER = 12;
+  const AIR = 0, GRASS = 1, DIRT = 2, STONE = 3, SAND = 4, WATER = 5, WOOD = 6, LEAF = 7, CHEST = 8, ROCK = 9, SNOW = 10, PILLAR = 11, MARKER = 12, DAILY = 13;
   const RMAX = 138;   // rings layout: outer radius of the modeled discography
   const LANE_M = 14;  // lanes layout: shoreline margin before the timeline starts
 
@@ -426,7 +526,44 @@
     }
 
     buildTimeMarkers();
+    placeDailyEcho();
     W.ready = true;
+  }
+
+  /* ── the daily echo: one glowing block a day, same spot for everyone,
+     found once per day per fan; pure client, zero server ── */
+  function placeDailyEcho() {
+    W.echo = null;
+    const day = new Date().toISOString().slice(0, 10);
+    if (store.get('echo_' + W.cfg.worldId, '') === day) return; // already found today
+    const erand = seeded('daily|' + W.cfg.worldId + '|' + day);
+    for (let tries = 0; tries < 60; tries++) {
+      const x = 8 + Math.floor(erand() * (SXZ - 16));
+      const z = 8 + Math.floor(erand() * (SXZ - 16));
+      if (AREA_CORNER[areaOf(x, z)] !== undefined) continue;
+      const h = W.heights[x * SXZ + z];
+      if (h <= SEA + 1) continue;
+      W.blocks[bIdx(x, h, z)] = DAILY;
+      W.echo = { x, z, day };
+      return;
+    }
+  }
+  function echoFound(hit) {
+    W.blocks[bIdx(hit.x, hit.y, hit.z)] = AIR;
+    markDirtyAt(hit.x, hit.z);
+    const day = new Date().toISOString().slice(0, 10);
+    store.set('echo_' + W.cfg.worldId, day);
+    W.echo = null;
+    const pp = PP.get();
+    const yesterday = new Date(Date.now() - 86400e3).toISOString().slice(0, 10);
+    pp.streak = pp.lastEcho === yesterday ? (pp.streak || 0) + 1 : 1;
+    pp.lastEcho = day;
+    pp.echoes = (pp.echoes || 0) + 1;
+    PP.set(pp);
+    Sfx.loot();
+    burst(hit.x + 0.5, hit.y + 1, hit.z + 0.5, [0.37, 0.88, 0.95], 26, 8);
+    showToast('☼ daily echo found · streak ' + pp.streak + (pp.streak > 1 ? ' days' : ' day'), 3200);
+    vibrate([20, 30, 20]);
   }
 
   /* ── distance markers: one every 30 seconds of each song ──
@@ -685,6 +822,7 @@
       case SNOW: return pal.snow;
       case PILLAR: return mix3(pal.stone, pal.accent, 0.3);
       case MARKER: return mix3(pal.accent, [1, 1, 1], 0.35);
+      case DAILY: return [0.37, 0.88, 0.95];
       default: return [1, 0, 1];
     }
   }
@@ -708,7 +846,7 @@
           const nb = getB(x + F.n[0], y + F.n[1], z + F.n[2]);
           if (isWater) { if (nb !== AIR) continue; }
           else if (nb !== AIR && nb !== WATER) continue;
-          let glow = b === CHEST ? 1 : b === MARKER ? 0.9 : b === PILLAR ? 0.45 : 0;
+          let glow = b === CHEST || b === DAILY ? 1 : b === MARKER ? 0.9 : b === PILLAR ? 0.45 : 0;
           // 30-second time stripes glow on the walking surface
           if (stripe && fi === 2 && y === surfH && !isWater) glow = Math.max(glow, 0.55);
           let base, varr = 1;
@@ -1057,6 +1195,11 @@
     }
     if (P.y > SY + 20) P.y = SY + 20;
     if (P.y < -6) { P.y = surfaceY(P.x, P.z) + 2; P.vy = 0; }
+    const step = Math.hypot(P.vx, P.vz) * dt;
+    if (step > 0.001 && step < 2) {
+      S.kmAcc = (S.kmAcc || 0) + step / 1000;
+      if (S.kmAcc > 0.05) { PP.bump('km', S.kmAcc); S.kmAcc = 0; }
+    }
     P.invuln = Math.max(0, P.invuln - dt);
     P.tpCool = Math.max(0, P.tpCool - dt);
   }
@@ -1100,6 +1243,7 @@
     const hit = raycast(P.x, P.y + EYE, P.z, dir[0], dir[1], dir[2], 7);
     if (!hit || hit.y <= 0) return;
     if (hit.b === CHEST) { openLoot(hit); return; }
+    if (hit.b === DAILY) { echoFound(hit); return; }
     if (hit.b === ROCK || hit.b === PILLAR || hit.b === MARKER) {
       showToast(hit.b === MARKER ? 'a time marker · every one is 30 seconds of the song' :
         hit.b === PILLAR ? 'the pillar hums · it will not break' : 'too hard to dig', 1400);
@@ -1264,11 +1408,30 @@
           m.tz = tr * AREA + 10 + Math.random() * (AREA - 20);
         }
       }
+      if (m.tamed) {
+        // a tamed gloom pads along behind its fan
+        if (playerInArena && dp > 3.2) { m.tx = P.x; m.tz = P.z; }
+        else if (playerInArena) { m.tx = m.x; m.tz = m.z; }
+      } else if (playerInArena && !P.flying) {
+        // close-call taming: slip out of its jaws three times and it warms to you
+        if (dp < 2.1 && P.invuln <= 0) m.hot = true;
+        if (m.hot && dp > 7) {
+          m.hot = false;
+          m.dodges = (m.dodges || 0) + 1;
+          if (m.dodges >= 3) {
+            m.tamed = true;
+            PP.bump('tamed', 1);
+            burst(m.x, m.y + 1.2, m.z, [1, 0.55, 0.7], 20, 5);
+            showToast('♥ you tamed a gloom · it likes you now', 3200);
+            vibrate([15, 20, 15]);
+          } else showToast('the gloom hesitates… (' + m.dodges + '/3)', 1600);
+        }
+      }
       const mdx = m.tx - m.x, mdz = m.tz - m.z;
       const md = Math.hypot(mdx, mdz);
       if (md > 0.4) {
-        const chase = playerInArena && dp < 15 && !P.flying;
-        const sp = m.speed * (chase ? 1.5 : 1);
+        const chase = !m.tamed && playerInArena && dp < 15 && !P.flying;
+        const sp = m.speed * (chase ? 1.5 : m.tamed ? 1.3 : 1);
         m.x += (mdx / md) * sp * dt;
         m.z += (mdz / md) * sp * dt;
         // keep them inside their arena
@@ -1276,7 +1439,7 @@
         m.z = clamp(m.z, tr * AREA + 2, tr * AREA + AREA - 2);
       }
       m.y = surfaceY(m.x, m.z) + 0.1 + Math.abs(Math.sin(t * 6 + m.phase)) * 0.35;
-      if (playerInArena && P.invuln <= 0 && dp < 1.35 && Math.abs((P.y + 0.9) - m.y) < 2.2) {
+      if (!m.tamed && playerInArena && P.invuln <= 0 && dp < 1.35 && Math.abs((P.y + 0.9) - m.y) < 2.2) {
         killPlayer(m);
       }
     }
@@ -1316,7 +1479,9 @@
 
   function activeLootList() {
     const key = areaKeyOf(P.areaIdx);
-    return W.lootByArea[key] || [];
+    const list = (W.lootByArea[key] || []).slice();
+    if (W.echo && areaOf(W.echo.x, W.echo.z) === P.areaIdx) list.push({ id: 'echo', x: W.echo.x, z: W.echo.z });
+    return list;
   }
   function nearestLoot() {
     let best = null, bd = 1e9;
@@ -1399,22 +1564,13 @@
       const pal = palAtPlayer();
       burst(hit.x + 0.5, hit.y + 1, hit.z + 0.5, pal.accent, 30, 8);
       const found = store.get('found', []);
-      if (found.indexOf(entry.id) < 0) { found.push(entry.id); store.set('found', found.slice(-200)); }
-      $('lootTitle').textContent = payload.title || 'Buried loot';
-      $('lootMsg').textContent = payload.message || '';
-      const codeEl = $('lootCode');
-      if (payload.code) { codeEl.style.display = ''; codeEl.textContent = payload.code; } else codeEl.style.display = 'none';
-      const openEl = $('lootOpen');
-      if (payload.url && /^https?:\/\//i.test(payload.url)) { openEl.style.display = ''; openEl.href = payload.url; } else openEl.style.display = 'none';
-      const bits = [];
-      if (payload.remaining !== null && payload.remaining !== undefined) {
-        bits.push(payload.remaining === 0 ? 'you got the last one' : payload.remaining + ' left for other fans');
+      if (found.indexOf(entry.id) < 0) {
+        found.push(entry.id);
+        store.set('found', found.slice(-200));
+        Stats.find();
+        rememberFind({ id: entry.id, t: (payload.title || 'Buried loot').slice(0, 60), w: W.cfg.name, f: payload.finder || 0, at: Date.now() });
       }
-      if (payload.endsAt && payload.endsAt > Date.now()) {
-        const mins = Math.round((payload.endsAt - Date.now()) / 60000);
-        bits.push(mins > 120 ? 'gone in ' + Math.round(mins / 60) + ' hours' : 'gone in ' + Math.max(1, mins) + ' minutes');
-      }
-      $('lootRemaining').textContent = bits.join(' · ');
+      paintLootModal(payload);
       $('lootModal').classList.add('on');
     };
     if (entry.demo) {
@@ -1428,7 +1584,7 @@
     fetch(entry.origin + '/api/loot/claim', Object.assign({
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ lootId: entry.id, fanId: fan.id })
+      body: JSON.stringify({ lootId: entry.id, fanId: fan.id, fanName: fan.name || '' })
     }, ctrl ? { signal: ctrl.signal } : {})).then((r) => {
       clearTimeout(tm);
       return r.json().catch(() => null).then((d) => {
@@ -1437,6 +1593,53 @@
       });
     }).catch(() => { clearTimeout(tm); done(null, true, false); });
   }
+  let lootCtx = null; // {lootId} for the email step
+  function paintLootModal(payload) {
+    lootCtx = { lootId: payload.id };
+    $('lootTitle').textContent = payload.title || 'Buried loot';
+    $('lootMsg').textContent = payload.message || '';
+    const codeEl = $('lootCode');
+    if (payload.code) { codeEl.style.display = ''; codeEl.textContent = payload.code; } else codeEl.style.display = 'none';
+    const openEl = $('lootOpen');
+    if (payload.url && /^https?:\/\//i.test(payload.url)) { openEl.style.display = ''; openEl.href = payload.url; } else openEl.style.display = 'none';
+    $('lootFinder').textContent = payload.finder ? 'you were finder #' + payload.finder + ' of this drop' : '';
+    const bits = [];
+    if (payload.remaining !== null && payload.remaining !== undefined) {
+      bits.push(payload.remaining === 0 ? 'you got the last one' : payload.remaining + ' left for other fans');
+    }
+    if (payload.endsAt && payload.endsAt > Date.now()) {
+      const mins = Math.round((payload.endsAt - Date.now()) / 60000);
+      bits.push(mins > 120 ? 'gone in ' + Math.round(mins / 60) + ' hours' : 'gone in ' + Math.max(1, mins) + ' minutes');
+    }
+    $('lootRemaining').textContent = bits.join(' · ');
+    const row = $('lootEmailRow');
+    if (payload.emailAsk) {
+      row.style.display = '';
+      $('lootEmailAsk').textContent = payload.emailAsk === 'required'
+        ? 'This one arrives by email. Leave yours and it is on its way.'
+        : 'Want news from ' + (W.cfg.artist || 'this artist') + '? Leave your email.';
+      $('lootEmailNote').textContent = 'Goes only to ' + (W.cfg.artist || 'the artist') + ', stored on their own account. Nothing else sees it.';
+    } else row.style.display = 'none';
+  }
+  $('lootEmailGo').addEventListener('click', () => {
+    if (!lootCtx) return;
+    const email = $('lootEmail').value.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { showToast('that email does not look right', 1800); return; }
+    fetchJson(W.cfg.origin + '/api/loot/email', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ lootId: lootCtx.lootId, fanId: fan.id, fanName: fan.name || '', email, consent: true })
+    }, 8000).then((d) => {
+      if (d && d.ok) {
+        $('lootEmailRow').style.display = 'none';
+        $('lootEmail').value = '';
+        if (d.loot && (d.loot.url || d.loot.code)) {
+          if (d.loot.code) { $('lootCode').style.display = ''; $('lootCode').textContent = d.loot.code; }
+          if (d.loot.url && /^https?:\/\//i.test(d.loot.url)) { $('lootOpen').style.display = ''; $('lootOpen').href = d.loot.url; }
+        }
+        showToast('done · check your inbox for anything the artist sends', 2600);
+      } else showToast((d && d.error) || 'that did not go through', 2200);
+    }).catch(() => showToast('the world did not answer · try again', 2200));
+  });
   $('lootClose').addEventListener('click', () => $('lootModal').classList.remove('on'));
 
   /* ═══════════ presence & friends ═══════════ */
@@ -1519,6 +1722,306 @@
     }
   };
 
+  /* ═══════════ photo mode ═══════════ */
+  let shotCtx = { link: '' };
+  function spotLink() {
+    return location.origin + '/#at=' + Math.round(P.x) + ',' + Math.round(P.z);
+  }
+  function captureShot() {
+    try {
+      const w = glCv.width, h = glCv.height;
+      const barH = Math.round(h * 0.11);
+      const cv = document.createElement('canvas');
+      cv.width = w; cv.height = h + barH;
+      const c = cv.getContext('2d');
+      c.fillStyle = '#0a1420';
+      c.fillRect(0, 0, cv.width, cv.height);
+      c.drawImage(glCv, 0, 0);
+      const pad = Math.round(w * 0.045), base = h + barH * 0.38;
+      c.fillStyle = '#e9eae0';
+      c.font = '700 ' + Math.round(barH * 0.3) + 'px "Space Mono", monospace';
+      c.fillText(W.cfg.name.toUpperCase().slice(0, 34), pad, base);
+      const sa = songAt(P.x, P.z);
+      c.fillStyle = 'rgba(233,234,224,0.65)';
+      c.font = Math.round(barH * 0.22) + 'px "Space Mono", monospace';
+      c.fillText(((sa && !sa.beyond) ? sa.song.title.slice(0, 26) + ' · ' + fmtTime(sa.t) + ' · ' : '') + AREA_NAMES[areaOf(P.x, P.z)], pad, base + barH * 0.28);
+      c.fillStyle = '#c6f24e';
+      c.fillText(spotLink().replace(/^https?:\/\//, ''), pad, base + barH * 0.54);
+      openShot(cv.toDataURL('image/png'), '📷 Your shot', 'tuneland-shot.png', spotLink(),
+        'Found this spot in ' + W.cfg.name + ' · walk in here: ');
+    } catch (e) { showToast('the shot did not come out · try again', 1800); }
+  }
+  function openShot(dataUrl, eyebrow, filename, link, shareText) {
+    shotCtx = { dataUrl, filename, link, shareText };
+    $('shotEyebrow').textContent = eyebrow;
+    $('shotImg').src = dataUrl;
+    $('shotDownload').href = dataUrl;
+    $('shotDownload').setAttribute('download', filename);
+    $('shotModal').classList.add('on');
+  }
+  $('btnShot').addEventListener('click', () => { S.shotPending = true; Sfx.click(); });
+  $('shotClose').addEventListener('click', () => $('shotModal').classList.remove('on'));
+  $('shotCopyLink').addEventListener('click', () => {
+    if (navigator.clipboard) navigator.clipboard.writeText(shotCtx.link).then(() => {
+      $('shotCopyLink').textContent = 'Copied · paste it anywhere';
+      setTimeout(() => { $('shotCopyLink').textContent = 'Copy a link to this spot'; }, 2200);
+    }).catch(() => {});
+  });
+  $('shotShare').addEventListener('click', async () => {
+    try {
+      const blob = await (await fetch(shotCtx.dataUrl)).blob();
+      const file = new File([blob], shotCtx.filename, { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], text: shotCtx.shareText + shotCtx.link });
+        return;
+      }
+    } catch (e) {}
+    if (navigator.share) { navigator.share({ text: shotCtx.shareText, url: shotCtx.link }).catch(() => {}); }
+    else if (navigator.clipboard) {
+      navigator.clipboard.writeText(shotCtx.shareText + shotCtx.link).catch(() => {});
+      showToast('link copied · the picture is under "save the picture"', 2600);
+    }
+  });
+
+  /* ═══════════ races: a time trial in a link, ghost included ═══════════ */
+  const Race = { rec: null, incoming: null, active: null };
+  function pathAt(path, tSec) {
+    const f = clamp(tSec * 2, 0, path.length - 1.0001);
+    const i = f | 0;
+    const j = Math.min(path.length - 1, i + 1);
+    return [lerp(path[i][0], path[j][0], f - i), lerp(path[i][1], path[j][1], f - i)];
+  }
+  function startRaceRec() {
+    Race.rec = { t0: performance.now(), sx: P.x, sz: P.z, path: [[P.x, P.z]], acc: 0 };
+    $('btnRace').classList.add('lit');
+    showToast('🏁 race started · run, then press 🏁 at the finish', 3200);
+    Sfx.click();
+  }
+  function cancelRaceRec(msg) {
+    Race.rec = null;
+    $('btnRace').classList.remove('lit');
+    if (msg) showToast(msg, 2200);
+  }
+  function finishRaceRec() {
+    const r = Race.rec;
+    const dist = Math.hypot(P.x - r.sx, P.z - r.sz);
+    if (dist < 10) { cancelRaceRec('too short for a race · run at least a little way'); return; }
+    const tMs = Math.round(performance.now() - r.t0);
+    r.path.push([P.x, P.z]);
+    const obj = {
+      v: 1, s: [Math.round(r.sx), Math.round(r.sz)], f: [Math.round(P.x), Math.round(P.z)],
+      t: tMs, n: (fan.name || 'a fan').slice(0, 24), g: encodePath(r.path)
+    };
+    cancelRaceRec();
+    S.raceShareUrl = location.origin + '/#race=' + jsonToB64u(obj);
+    $('raceTitle').textContent = (tMs / 1000).toFixed(1) + 's';
+    $('raceMsg').textContent = 'You ran ' + Math.round(dist) + ' blocks. Send the link and a friend races your ghost on this exact stretch.';
+    $('raceModal').classList.add('on');
+  }
+  $('btnRace').addEventListener('click', () => {
+    if (!S.playing || !S.live) return;
+    if (Race.active) { showToast('finish this race first', 1600); return; }
+    if (Race.rec) finishRaceRec();
+    else startRaceRec();
+  });
+  $('raceClose').addEventListener('click', () => $('raceModal').classList.remove('on'));
+  $('raceShare').addEventListener('click', () => {
+    const text = '🏁 Race my ghost in ' + W.cfg.name + ': ';
+    if (navigator.share) navigator.share({ text, url: S.raceShareUrl }).catch(() => {});
+    else if (navigator.clipboard) {
+      navigator.clipboard.writeText(text + S.raceShareUrl).then(() => {
+        $('raceShare').textContent = 'Copied · send it';
+        setTimeout(() => { $('raceShare').textContent = 'Share this race'; }, 2200);
+      }).catch(() => {});
+    }
+  });
+  function parseRaceHash() {
+    try {
+      const m = location.hash.match(/[#&]race=([A-Za-z0-9\-_]+)/);
+      if (!m) return null;
+      const p = b64uToJson(m[1]);
+      if (!p || p.v !== 1 || !Array.isArray(p.s) || !Array.isArray(p.f) || typeof p.t !== 'number') return null;
+      const path = decodePath(p.g);
+      if (!path) return null;
+      return {
+        s: [clamp(Number(p.s[0]) || 0, 2, SXZ - 3), clamp(Number(p.s[1]) || 0, 2, SXZ - 3)],
+        f: [clamp(Number(p.f[0]) || 0, 2, SXZ - 3), clamp(Number(p.f[1]) || 0, 2, SXZ - 3)],
+        t: clamp(Math.round(p.t), 1000, 30 * 60e3),
+        n: String(p.n || 'a fan').slice(0, 24),
+        path
+      };
+    } catch (e) { return null; }
+  }
+  function beginIncomingRace(race) {
+    Race.active = { race, phase: 'count', count: 3.999 };
+    P.x = race.s[0] + 0.5; P.z = race.s[1] + 0.5;
+    P.y = surfaceY(P.x, P.z) + 1;
+    P.vx = P.vy = P.vz = 0;
+    // face the finish line
+    P.yaw = Math.atan2(-(race.f[0] - P.x), -(race.f[1] - P.z));
+  }
+  function updateRace(dt) {
+    if (Race.rec) {
+      Race.rec.acc += dt;
+      while (Race.rec.acc >= 0.5) {
+        Race.rec.acc -= 0.5;
+        Race.rec.path.push([P.x, P.z]);
+        if (Race.rec.path.length > 240) { cancelRaceRec('race too long · it reset'); return; }
+      }
+    }
+    const A2 = Race.active;
+    if (!A2) return;
+    if (A2.phase === 'count') {
+      const before = Math.ceil(A2.count);
+      A2.count -= dt;
+      const now2 = Math.ceil(A2.count);
+      if (now2 !== before && now2 > 0) { showBanner(String(now2), null); Sfx.click(); }
+      if (A2.count <= 0) {
+        A2.phase = 'run';
+        A2.t0 = performance.now();
+        A2.myPath = [[P.x, P.z]];
+        A2.acc = 0;
+        showBanner('GO', 'beat ' + A2.race.n + ' to the marker');
+        Sfx.teleport();
+      }
+      return;
+    }
+    A2.acc += dt;
+    while (A2.acc >= 0.5) {
+      A2.acc -= 0.5;
+      A2.myPath.push([P.x, P.z]);
+      if (A2.myPath.length > 240) A2.myPath.shift();
+    }
+    const elapsed = performance.now() - A2.t0;
+    if (Math.hypot(P.x - (A2.race.f[0] + 0.5), P.z - (A2.race.f[1] + 0.5)) < 3.5) {
+      const mine = Math.round(elapsed);
+      const won = mine < A2.race.t;
+      Sfx.loot();
+      showBanner(won ? 'You won' : 'Their ghost won',
+        (mine / 1000).toFixed(1) + 's vs ' + (A2.race.t / 1000).toFixed(1) + 's');
+      const obj = {
+        v: 1, s: A2.race.s, f: A2.race.f,
+        t: won ? mine : A2.race.t,
+        n: won ? (fan.name || 'a fan').slice(0, 24) : A2.race.n,
+        g: won ? encodePath(A2.myPath) : encodePath(A2.race.path)
+      };
+      S.raceShareUrl = location.origin + '/#race=' + jsonToB64u(obj);
+      $('raceTitle').textContent = (mine / 1000).toFixed(1) + 's' + (won ? ' · new record' : '');
+      $('raceMsg').textContent = won
+        ? 'You beat ' + A2.race.n + '. Share the link and dare the next one.'
+        : A2.race.n + ' keeps the record at ' + (A2.race.t / 1000).toFixed(1) + 's. Share it or try again.';
+      $('raceModal').classList.add('on');
+      Race.active = null;
+    } else if (elapsed > A2.race.t * 5 + 30000) {
+      Race.active = null;
+      showToast('the ghost got away · race called off', 2600);
+    }
+  }
+
+  /* ═══════════ passport ═══════════ */
+  function passportStats() {
+    const pp = PP.get();
+    const visited = store.get('visited', {});
+    const log = store.get('foundLog', []);
+    const done = questsDone();
+    let walked = 0;
+    for (const wid in done) walked += Object.keys(done[wid]).length;
+    const crownList = Object.values(crowns());
+    return {
+      worlds: Object.keys(visited).length,
+      finds: Math.max(log.length, (store.get('found', []) || []).length),
+      walked, crowns: crownList,
+      streak: pp.streak || 0, tamed: pp.tamed || 0, echoes: pp.echoes || 0,
+      km: pp.km || 0, bestFinder: pp.bestFinder || 0, log
+    };
+  }
+  function openPassport() {
+    const st = passportStats();
+    const grid = $('passGrid');
+    grid.textContent = '';
+    const tile = (v, label) => {
+      const d = document.createElement('div');
+      d.className = 'pg';
+      const b = document.createElement('b');
+      b.textContent = String(v);
+      const s2 = document.createElement('span');
+      s2.textContent = label;
+      d.appendChild(b); d.appendChild(s2);
+      grid.appendChild(d);
+    };
+    tile(st.worlds, 'worlds visited');
+    tile(st.finds, 'chests found');
+    tile(st.walked, 'pieces walked');
+    tile(st.crowns.length, 'worlds crowned');
+    tile(st.streak, 'day streak');
+    tile(st.tamed, 'glooms tamed');
+    tile(st.km.toFixed(1) + 'km', 'wandered');
+    tile(st.bestFinder ? '#' + st.bestFinder : '·', 'best finder rank');
+    $('passCrowns').textContent = st.crowns.length ? 'Crowned: ' + st.crowns.join(', ') : 'No worlds crowned yet. Walk every piece of one.';
+    const finds = $('passFinds');
+    finds.textContent = '';
+    if (!st.log.length) {
+      const p = document.createElement('div');
+      p.className = 'pf';
+      p.textContent = 'Nothing dug up yet. Follow the radar.';
+      finds.appendChild(p);
+    }
+    for (const e of st.log.slice(0, 12)) {
+      const p = document.createElement('div');
+      p.className = 'pf';
+      p.textContent = e.t + ' · ' + (e.w || '') + ' ';
+      if (e.f) {
+        const i = document.createElement('i');
+        i.textContent = '#' + e.f;
+        p.appendChild(i);
+      }
+      finds.appendChild(p);
+    }
+    $('passModal').classList.add('on');
+  }
+  function renderPassCard() {
+    const st = passportStats();
+    const cv = document.createElement('canvas');
+    cv.width = 900; cv.height = 1200;
+    const c = cv.getContext('2d');
+    c.fillStyle = '#0a1420';
+    c.fillRect(0, 0, 900, 1200);
+    for (let i = 0; i < 40; i++) { // scattered voxel confetti
+      const rr = seeded('card|' + fan.id)();
+      c.fillStyle = ['#c6f24e', '#5ee1f2', '#ff512e'][i % 3] + '22';
+      c.fillRect((i * 137) % 860 + 20, (i * 271) % 1160 + 20, 18, 18);
+    }
+    c.fillStyle = '#c6f24e';
+    c.font = '700 34px "Space Mono", monospace';
+    c.fillText('TUNELAND PASSPORT', 60, 110);
+    c.fillStyle = '#e9eae0';
+    c.font = '800 72px "Bricolage Grotesque", sans-serif';
+    c.fillText((fan.name || 'A wandering fan').slice(0, 20), 60, 210);
+    const rows = [
+      [st.worlds, 'worlds visited'], [st.finds, 'chests found'],
+      [st.walked, 'pieces walked end to end'], [st.crowns.length, 'worlds crowned'],
+      [st.streak, 'day echo streak'], [st.tamed, 'glooms tamed'],
+      [st.km.toFixed(1) + ' km', 'wandered on foot and wing']
+    ];
+    rows.forEach((r, i) => {
+      const y = 330 + i * 105;
+      c.fillStyle = '#c6f24e';
+      c.font = '700 58px "Space Mono", monospace';
+      c.fillText(String(r[0]), 60, y);
+      c.fillStyle = 'rgba(233,234,224,0.75)';
+      c.font = '26px "Space Mono", monospace';
+      c.fillText(r[1], 300, y - 8);
+    });
+    c.fillStyle = 'rgba(233,234,224,0.5)';
+    c.font = '24px "Space Mono", monospace';
+    c.fillText('wander the worlds · midhrami.com/tuneland', 60, 1140);
+    openShot(cv.toDataURL('image/png'), '🎒 Your passport', 'tuneland-passport.png',
+      'https://midhrami.com/tuneland/', 'My Tuneland passport so far: ');
+  }
+  $('btnPassport').addEventListener('click', openPassport);
+  $('passClose').addEventListener('click', () => $('passModal').classList.remove('on'));
+  $('passCard').addEventListener('click', () => { $('passModal').classList.remove('on'); renderPassCard(); });
+
   /* ═══════════ crossing into linked worlds ═══════════ */
   const neighborCache = {}; // origin -> config (in-memory for this session)
   function prefetchNeighbor(corner) {
@@ -1563,6 +2066,9 @@
     const keepY = P.y, keepYaw = P.yaw, keepPitch = P.pitch, keepFly = P.flying;
     Presence.leave();
     Music.stop();
+    Stats.flush();
+    cancelRaceRec();
+    Race.active = null;
     genWorld(ncfg);
     clearChunks();
     W.lootByArea = {};
@@ -1574,6 +2080,8 @@
     P.vx = P.vy = P.vz = 0;
     P.areaIdx = -1; // force area-change handling
     S.songIdx = -999; // force the new world's song to start
+    Stats.begin(ncfg.origin, ncfg.worldId);
+    rememberVisit(ncfg.worldId, ncfg.name);
     $('hudWorld').textContent = ncfg.name;
     showBanner(ncfg.name, ncfg.asleep ? 'this world is asleep · loot and friends return when it wakes' : 'you crossed into ' + (ncfg.artist || 'another artist') + '\'s land');
     if (ncfg.asleep) showToast('this world is asleep right now · the land is still yours to roam', 3200);
@@ -1615,6 +2123,40 @@
       S.songIdx = idx;
       Music.playSong(idx >= 0 ? W.songs[idx] : null, sa ? sa.t : 0);
       if (idx >= 0 && W.songs[idx].url) showToast('now playing: ' + W.songs[idx].title, 2200);
+    }
+    trackQuest(sa);
+  }
+
+  /* listening quests: stand through a whole piece and its region counts as
+     walked; walk them all and the world is crowned. Local + one stat ping. */
+  let questAcc = null;
+  function trackQuest(sa) {
+    if (!sa || sa.beyond || !W.cfg || W.cfg.demo) return;
+    const wid = W.cfg.worldId, sid = sa.song.id;
+    const done = questsDone();
+    if (done[wid] && done[wid][sid]) return;
+    if (!questAcc || questAcc.wid !== wid) questAcc = { wid, secs: store.get('questAcc_' + wid, {}) };
+    questAcc.secs[sid] = (questAcc.secs[sid] || 0) + 0.4;
+    if ((questAcc.secs[sid] % 10) < 0.4) store.set('questAcc_' + wid, questAcc.secs);
+    const goal = Math.min(sa.song.dur, 600) * 0.9;
+    if (questAcc.secs[sid] >= goal) {
+      const d = questsDone();
+      d[wid] = d[wid] || {};
+      d[wid][sid] = true;
+      store.set('questsDone', d);
+      store.set('questAcc_' + wid, questAcc.secs);
+      Stats.complete(sid);
+      Sfx.friend();
+      showToast('✦ you walked all of "' + sa.song.title + '"', 3200);
+      // crowned when every piece in this world is walked
+      const allDone = W.songs.every((s2) => d[wid][s2.id]);
+      if (allDone && !crowns()[wid]) {
+        const c = crowns();
+        c[wid] = W.cfg.name;
+        store.set('crowns', c);
+        showBanner('World crowned', 'you walked every piece of ' + W.cfg.name);
+        Sfx.loot();
+      }
     }
   }
 
@@ -1703,8 +2245,18 @@
       // glowing eyes toward the player
       const ea = Math.atan2(P.x - m.x, P.z - m.z);
       const ex = Math.sin(ea) * 0.39, ez = Math.cos(ea) * 0.39;
-      pushBox(dyn, m.x + ex - 0.22, m.y + 1.0 * sq, m.z + ez - 0.06, 0.14, 0.14, 0.14, [1, 0.3, 0.2], 1);
-      pushBox(dyn, m.x + ex + 0.08, m.y + 1.0 * sq, m.z + ez - 0.06, 0.14, 0.14, 0.14, [1, 0.3, 0.2], 1);
+      const eyeC = m.tamed ? [1, 0.55, 0.7] : [1, 0.3, 0.2];
+      pushBox(dyn, m.x + ex - 0.22, m.y + 1.0 * sq, m.z + ez - 0.06, 0.14, 0.14, 0.14, eyeC, 1);
+      pushBox(dyn, m.x + ex + 0.08, m.y + 1.0 * sq, m.z + ez - 0.06, 0.14, 0.14, 0.14, eyeC, 1);
+    }
+    if (Race.active && Race.active.phase === 'run') {
+      const el = (performance.now() - Race.active.t0) / 1000;
+      const gp = pathAt(Race.active.race.path, el);
+      const gy = surfaceY(gp[0], gp[1]) + 0.3;
+      pushBox(dyn, gp[0] - 0.35, gy, gp[1] - 0.35, 0.7, 1.4, 0.7, [1, 0.42, 0.28], 0.7);
+      const fx2 = Race.active.race.f[0] + 0.5, fz2 = Race.active.race.f[1] + 0.5;
+      const fy = surfaceY(fx2, fz2);
+      pushBox(dyn, fx2 - 0.5, fy, fz2 - 0.5, 1, 6 + Math.sin(t * 4) * 0.5, 1, [0.37, 0.88, 0.95], 1);
     }
     const now = performance.now();
     for (const [, o] of Presence.others) {
@@ -1776,6 +2328,8 @@
       updateMonsters(dt, t);
       updateParticles(dt);
       Presence.tick(dt);
+      Stats.tick(dt);
+      updateRace(dt);
       const ai = areaOf(P.x, P.z);
       if (ai !== P.areaIdx) onAreaChange(ai);
       S.hudT = (S.hudT || 0) - dt;
@@ -1785,6 +2339,7 @@
     }
     ensureChunksAround(P.x, P.z);
     drawScene(t, dt);
+    if (S.shotPending) { S.shotPending = false; captureShot(); }
   }
 
   /* ═══════════ enter/exit ═══════════ */
@@ -1817,6 +2372,9 @@
       P.y = surfaceY(P.x, P.z) + 1;
       P.pitch = -0.12;
       P.flying = false; P.areaIdx = -1;
+      Stats.begin(W.cfg.origin, W.cfg.worldId);
+      rememberVisit(W.cfg.worldId, W.cfg.name);
+      if (S.pendingRace) { beginIncomingRace(S.pendingRace); S.pendingRace = null; }
       $('btnFly').textContent = '🪽 walk'; $('btnFly').classList.remove('lit');
       $('btnJump').classList.remove('hide'); $('btnUp').classList.add('hide'); $('btnDown').classList.add('hide');
       $('hudWorld').textContent = W.cfg.name;
@@ -1836,6 +2394,9 @@
     }, 60);
   }
   function exitToMenu() {
+    Stats.flush();
+    cancelRaceRec();
+    Race.active = null;
     S.playing = false; S.live = false;
     cancelAnimationFrame(S.raf); S.raf = 0;
     Presence.leave();
@@ -1901,6 +2462,17 @@
     try { if (addFriend(decodeURIComponent(fm[1]))) showBanner('Friend added', 'you will be told when you are in the same area'); } catch (e) {}
   }
 
+  const raceIn = parseRaceHash();
+  if (raceIn) {
+    Race.incoming = raceIn;
+    $('raceCard').style.display = '';
+    $('raceLine').textContent = raceIn.n + ' ran a stretch of this world in ' + (raceIn.t / 1000).toFixed(1) + 's. Their ghost is waiting at the start line.';
+    $('btnRaceGo').addEventListener('click', () => {
+      S.pendingRace = Race.incoming;
+      enterWorld();
+    });
+  }
+
   paintFriends();
   $('btnMute').textContent = Sfx.muted ? '✕' : '♪';
 
@@ -1912,6 +2484,22 @@
       $('mArtist').textContent = cfg.artist ? 'A world by ' + cfg.artist : '';
       $('mBio').textContent = cfg.bio || '';
       $('footWorld').textContent = cfg.name;
+      if (!cfg.demo) {
+        fetchJson(cfg.origin + '/api/leaderboard', {}, 6000).then((d) => {
+          if (!d || !d.ok || !Array.isArray(d.top) || !d.top.length) return;
+          $('lbWrap').style.display = '';
+          const ol = $('lbList');
+          ol.textContent = '';
+          for (const r of d.top.slice(0, 10)) {
+            const li = document.createElement('li');
+            const b = document.createElement('b');
+            b.textContent = r.name;
+            li.appendChild(b);
+            li.appendChild(document.createTextNode(r.finds + (r.finds === 1 ? ' find' : ' finds')));
+            ol.appendChild(li);
+          }
+        }).catch(() => {});
+      }
       if (cfg.links.length) {
         $('neighbors').style.display = '';
         const row = $('nbRow');

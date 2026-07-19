@@ -59,6 +59,12 @@
     th, td { text-align: left; padding: 0.45rem 0.5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
     th { font-size: 0.56rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--bone-45); }
     td button { color: var(--coral); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.1em; }
+    .stat-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.5rem; margin-top: 0.4rem; }
+    .stat-tiles .st { border: 1px solid var(--line); border-radius: 10px; padding: 0.6rem; background: rgba(10,20,32,0.4); }
+    .stat-tiles .st b { display: block; font-family: var(--disp); font-size: 1.4rem; color: var(--acid); }
+    .stat-tiles .st span { font-size: 0.56rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--bone-45); }
+    .stat-bars { display: flex; align-items: flex-end; gap: 3px; height: 60px; margin-top: 0.8rem; }
+    .stat-bars i { flex: 1; background: rgba(198,242,78,0.55); border-radius: 3px 3px 0 0; min-height: 2px; }
     .warn {
       border: 1px solid rgba(255,81,46,0.55); border-radius: 12px; background: rgba(255,81,46,0.09);
       padding: 0.8rem 0.95rem; font-size: 0.68rem; color: var(--bone-70); line-height: 1.7; margin: 0.4rem 0 0.6rem;
@@ -129,6 +135,18 @@
     </div>
 
     <div id="adminUI" style="display:none">
+
+      <div class="card">
+        <h2>Your numbers</h2>
+        <p class="hint">The last 30 days, counted in your own Cloudflare. Visits and minutes are anonymous totals; emails are fans who chose to leave one with you.</p>
+        <div class="stat-tiles" id="statTiles"></div>
+        <div id="statBars" class="stat-bars"></div>
+        <table id="statSongs" style="display:none"><thead><tr><th>Piece</th><th>Walked end to end</th></tr></thead><tbody></tbody></table>
+        <div class="row">
+          <button class="btn ghost" id="btnExportEmails" style="flex:0 0 auto">Download your fan emails (CSV)</button>
+        </div>
+        <p class="status" id="statStatus"></p>
+      </div>
 
       <div class="card">
         <h2>1 · Name your world</h2>
@@ -213,6 +231,12 @@
       <div class="card">
         <h2>4 · Bury loot</h2>
         <p class="hint">Tap the map to pick a spot (the map is your whole world, top-down; darker is lower ground, blue is water). Fans dig it up and get whatever you put inside: a link, a code, a note. Limited drops disappear after that many finds.</p>
+        <label>Start from a campaign template (optional)</label>
+        <div class="row">
+          <button class="btn ghost" id="tplRelease" style="flex:1">Release day</button>
+          <button class="btn ghost" id="tplTour" style="flex:1">Tour stop</button>
+          <button class="btn ghost" id="tplPresave" style="flex:1">Presave hunt</button>
+        </div>
         <label>Area</label>
         <select id="lootArea"></select>
         <canvas id="lootMap" width="288" height="288"></canvas>
@@ -232,6 +256,12 @@
           <div><label>Link (optional)</label><input id="lUrl" maxlength="500" placeholder="https://…" /></div>
           <div><label>Coupon code (optional)</label><input id="lCode" maxlength="120" placeholder="FIRST50" /></div>
         </div>
+        <label>Email signup</label>
+        <select id="lEmailMode">
+          <option value="off">No email involved</option>
+          <option value="optional">Offer a signup after they open it</option>
+          <option value="required">They leave an email to open it</option>
+        </select>
         <button class="btn" id="btnBury">Bury it</button>
         <p class="status" id="buryStatus"></p>
         <table id="lootTable" style="display:none">
@@ -623,6 +653,7 @@
     if (lr) lr.checked = true;
     buildShapeList();
     drawMap();
+    paintStats();
     paintTracks(world.tracks || []);
     refreshLoot();
     refreshLinks();
@@ -910,6 +941,110 @@
     createShapeTrack(npTitleOr('My skyline'), { dur: npDurVal(), env: smoothArr(npHeights, 1), beats: [] }, null);
   });
 
+  /* ── analytics: aggregates from your own D1 ── */
+  function paintStats() {
+    api('/api/admin/stats?days=30').then((d) => {
+      if (!d.ok) { setStatus('statStatus', d.error || 'Could not load the numbers.', true); return; }
+      const sum = {}, byDay = {};
+      for (const r of d.stats) {
+        sum[r.metric] = (sum[r.metric] || 0) + r.value;
+        if (r.metric === 'visits') byDay[r.day] = r.value;
+      }
+      const tiles = $('statTiles');
+      tiles.textContent = '';
+      const tile = (v, label) => {
+        const el = document.createElement('div');
+        el.className = 'st';
+        const b = document.createElement('b'); b.textContent = String(v);
+        const sp = document.createElement('span'); sp.textContent = label;
+        el.appendChild(b); el.appendChild(sp);
+        tiles.appendChild(el);
+      };
+      tile(sum.visits || 0, 'visits · 30 days');
+      tile(sum.uniques || 0, 'fans');
+      tile(Math.round((sum.minutes || 0) / 60 * 10) / 10 + 'h', 'time in world');
+      tile(sum.finds || 0, 'chests dug up');
+      tile(d.emails, 'emails with you');
+      // last 14 days of visits as bars
+      const bars = $('statBars');
+      bars.textContent = '';
+      const days = [];
+      for (let i = 13; i >= 0; i--) days.push(new Date(Date.now() - i * 86400e3).toISOString().slice(0, 10));
+      const max = Math.max(1, ...days.map((day) => byDay[day] || 0));
+      for (const day of days) {
+        const bar = document.createElement('i');
+        bar.style.height = Math.round((byDay[day] || 0) / max * 100) + '%';
+        bar.title = day + ': ' + (byDay[day] || 0) + ' visits';
+        bars.appendChild(bar);
+      }
+      // pieces walked end to end
+      const tb = $('statSongs').querySelector('tbody');
+      tb.textContent = '';
+      const titleById = {};
+      for (const t of world.tracks || []) titleById[t.id] = t.title;
+      const walks = Object.keys(sum).filter((m) => m.startsWith('complete|'))
+        .map((m) => ({ title: titleById[m.slice(9)] || 'a removed piece', n: sum[m] }))
+        .sort((a, b) => b.n - a.n);
+      $('statSongs').style.display = walks.length ? '' : 'none';
+      for (const wk of walks) {
+        const tr = document.createElement('tr');
+        const td1 = document.createElement('td'); td1.textContent = wk.title;
+        const td2 = document.createElement('td'); td2.textContent = wk.n + (wk.n === 1 ? ' time' : ' times');
+        tr.appendChild(td1); tr.appendChild(td2);
+        tb.appendChild(tr);
+      }
+    }).catch(() => setStatus('statStatus', 'Could not reach the world.', true));
+  }
+  $('btnExportEmails').addEventListener('click', () => {
+    fetch('/api/admin/emails?format=csv', { headers: { authorization: 'Bearer ' + token } })
+      .then((r) => { if (!r.ok) throw new Error('no'); return r.blob(); })
+      .then((blob) => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'tuneland-fans.csv';
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      })
+      .catch(() => setStatus('statStatus', 'Export failed. Reload and try again.', true));
+  });
+
+  /* ── campaign templates: the same loot form, prefilled with a plan ── */
+  function nextFridayNoon() {
+    const d = new Date();
+    d.setDate(d.getDate() + ((5 - d.getDay() + 7) % 7 || 7));
+    d.setHours(12, 0, 0, 0);
+    return d;
+  }
+  function toLocalInput(d) {
+    const p = (n) => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+  function applyTemplate(fields, note) {
+    for (const k in fields) $(k).value = fields[k];
+    setStatus('buryStatus', note);
+  }
+  $('tplRelease').addEventListener('click', () => {
+    const start = nextFridayNoon();
+    applyTemplate({
+      lTitle: 'Release day drop', lMsg: 'You found it on day one. This one is for the early ones.',
+      lUrl: '', lCode: 'DAYONE', lMax: '50',
+      lStart: toLocalInput(start), lEnd: toLocalInput(new Date(start.getTime() + 72 * 3600e3)),
+      lEmailMode: 'optional'
+    }, 'Release day: first 50 fans, live for the 72 hours from Friday noon. Put your release link in, pick a spot, bury it.');
+  });
+  $('tplTour').addEventListener('click', () => {
+    applyTemplate({
+      lTitle: 'Tour stop: CITY', lMsg: 'See you at the show. Flash this at the merch table.',
+      lUrl: '', lCode: 'TOURFAN', lMax: '25', lStart: '', lEnd: '', lEmailMode: 'off'
+    }, 'Tour trail: bury one of these per city, set each to appear on that show date. Rename CITY each time.');
+  });
+  $('tplPresave').addEventListener('click', () => {
+    applyTemplate({
+      lTitle: 'Presave the next single', lMsg: 'It is buried here first. Presave and you hear it the second it lands.',
+      lUrl: 'https://', lCode: '', lMax: '0', lStart: '', lEnd: '', lEmailMode: 'required'
+    }, 'Presave hunt: paste your presave link, and fans leave an email to open it. Your list grows with every dig.');
+  });
+
   /* loot */
   function fillLootAreas() {
     const sel = $('lootArea');
@@ -967,15 +1102,18 @@
         title: $('lTitle').value, message: $('lMsg').value,
         url: $('lUrl').value, code: $('lCode').value,
         maxClaims: Number($('lMax').value) || 0,
-        startsAt, endsAt
+        startsAt, endsAt,
+        emailMode: $('lEmailMode').value
       })
     }).then((d) => {
       if (d.ok) {
         setStatus('buryStatus', 'Buried. Fans with a radar will find it.');
         $('lTitle').value = ''; $('lMsg').value = ''; $('lUrl').value = ''; $('lCode').value = '';
         $('lStart').value = ''; $('lEnd').value = '';
+        $('lEmailMode').value = 'off';
         lootSpot = null;
         refreshLoot();
+        paintStats();
       } else setStatus('buryStatus', d.error || 'Burying failed.', true);
     }).catch(() => setStatus('buryStatus', 'Could not reach the world.', true));
   });
