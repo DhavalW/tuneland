@@ -1504,19 +1504,19 @@
     c.clearRect(0, 0, 216, 216);
     c.save();
     c.translate(R, R);
-    c.fillStyle = 'rgba(20,15,30,0.72)';
+    c.fillStyle = 'rgba(243,235,216,0.88)';
     c.beginPath(); c.arc(0, 0, R - 4, 0, 6.284); c.fill();
-    c.strokeStyle = 'rgba(242,163,60,0.5)';
+    c.strokeStyle = 'rgba(33,29,21,0.85)';
     c.lineWidth = 2;
     c.beginPath(); c.arc(0, 0, R - 4, 0, 6.284); c.stroke();
-    c.strokeStyle = 'rgba(242,163,60,0.18)';
+    c.strokeStyle = 'rgba(33,29,21,0.22)';
     for (const rr of [0.33, 0.66]) { c.beginPath(); c.arc(0, 0, (R - 4) * rr, 0, 6.284); c.stroke(); }
     // sweep
     const grad = c.createConicGradient ? c.createConicGradient(sweep, 0, 0) : null;
     if (grad) {
-      grad.addColorStop(0, 'rgba(242,163,60,0.3)');
-      grad.addColorStop(0.12, 'rgba(242,163,60,0)');
-      grad.addColorStop(1, 'rgba(242,163,60,0)');
+      grad.addColorStop(0, 'rgba(214,58,30,0.35)');
+      grad.addColorStop(0.12, 'rgba(214,58,30,0)');
+      grad.addColorStop(1, 'rgba(214,58,30,0)');
       c.fillStyle = grad;
       c.beginPath(); c.arc(0, 0, R - 6, 0, 6.284); c.fill();
     }
@@ -1529,11 +1529,11 @@
       const rr = (d / RADAR_R) * (R - 14);
       const bx = Math.sin(ang) * rr, by = -Math.cos(ang) * rr;
       const pulse = 0.6 + 0.4 * Math.sin(performance.now() / 180);
-      c.fillStyle = 'rgba(242,163,60,' + (0.5 + 0.5 * pulse) + ')';
+      c.fillStyle = 'rgba(214,58,30,' + (0.5 + 0.5 * pulse) + ')';
       c.beginPath(); c.arc(bx, by, 5 + hot * 3, 0, 6.284); c.fill();
     }
     // center: you
-    c.fillStyle = 'rgba(69,184,164,0.9)';
+    c.fillStyle = 'rgba(29,122,108,0.95)';
     c.beginPath(); c.arc(0, 0, 4, 0, 6.284); c.fill();
     c.restore();
   }
@@ -1734,18 +1734,18 @@
       const cv = document.createElement('canvas');
       cv.width = w; cv.height = h + barH;
       const c = cv.getContext('2d');
-      c.fillStyle = '#171226';
+      c.fillStyle = '#f3ebd8';
       c.fillRect(0, 0, cv.width, cv.height);
       c.drawImage(glCv, 0, 0);
       const pad = Math.round(w * 0.045), base = h + barH * 0.38;
-      c.fillStyle = '#f2ead8';
+      c.fillStyle = '#211d15';
       c.font = '700 ' + Math.round(barH * 0.3) + 'px "Space Mono", monospace';
       c.fillText(W.cfg.name.toUpperCase().slice(0, 34), pad, base);
       const sa = songAt(P.x, P.z);
-      c.fillStyle = 'rgba(242,234,216,0.65)';
+      c.fillStyle = 'rgba(33,29,21,0.65)';
       c.font = Math.round(barH * 0.22) + 'px "Space Mono", monospace';
       c.fillText(((sa && !sa.beyond) ? sa.song.title.slice(0, 26) + ' · ' + fmtTime(sa.t) + ' · ' : '') + AREA_NAMES[areaOf(P.x, P.z)], pad, base + barH * 0.28);
-      c.fillStyle = '#f2a33c';
+      c.fillStyle = '#d63a1e';
       c.fillText(spotLink().replace(/^https?:\/\//, ''), pad, base + barH * 0.54);
       openShot(cv.toDataURL('image/png'), '📷 Your shot', 'tuneland-shot.png', spotLink(),
         'Found this spot in ' + W.cfg.name + ' · walk in here: ');
@@ -1984,18 +1984,24 @@
     const cv = document.createElement('canvas');
     cv.width = 900; cv.height = 1200;
     const c = cv.getContext('2d');
-    c.fillStyle = '#171226';
+    c.fillStyle = '#f3ebd8';
     c.fillRect(0, 0, 900, 1200);
+    c.strokeStyle = '#211d15';
+    c.lineWidth = 6;
+    c.strokeRect(18, 18, 864, 1164);
+    c.strokeStyle = 'rgba(214,58,30,0.8)';
+    c.lineWidth = 3;
+    c.strokeRect(30, 30, 840, 1140);
     for (let i = 0; i < 40; i++) { // scattered voxel confetti
       const rr = seeded('card|' + fan.id)();
-      c.fillStyle = ['#f2a33c', '#45b8a4', '#e2603f'][i % 3] + '22';
+      c.fillStyle = ['#d63a1e', '#1d7a6c', '#e9a23b'][i % 3] + '2e';
       c.fillRect((i * 137) % 860 + 20, (i * 271) % 1160 + 20, 18, 18);
     }
-    c.fillStyle = '#f2a33c';
+    c.fillStyle = '#d63a1e';
     c.font = '700 34px "Space Mono", monospace';
     c.fillText('TUNELAND PASSPORT', 60, 110);
-    c.fillStyle = '#f2ead8';
-    c.font = '800 72px "Bricolage Grotesque", sans-serif';
+    c.fillStyle = '#211d15';
+    c.font = '72px "Anton", "Arial Narrow", sans-serif';
     c.fillText((fan.name || 'A wandering fan').slice(0, 20), 60, 210);
     const rows = [
       [st.worlds, 'worlds visited'], [st.finds, 'chests found'],
@@ -2005,14 +2011,14 @@
     ];
     rows.forEach((r, i) => {
       const y = 330 + i * 105;
-      c.fillStyle = '#f2a33c';
+      c.fillStyle = '#d63a1e';
       c.font = '700 58px "Space Mono", monospace';
       c.fillText(String(r[0]), 60, y);
-      c.fillStyle = 'rgba(242,234,216,0.75)';
+      c.fillStyle = 'rgba(33,29,21,0.75)';
       c.font = '26px "Space Mono", monospace';
       c.fillText(r[1], 300, y - 8);
     });
-    c.fillStyle = 'rgba(242,234,216,0.5)';
+    c.fillStyle = 'rgba(33,29,21,0.55)';
     c.font = '24px "Space Mono", monospace';
     c.fillText('wander the worlds · midhrami.com/tuneland', 60, 1140);
     openShot(cv.toDataURL('image/png'), '🎒 Your passport', 'tuneland-passport.png',
@@ -2505,9 +2511,9 @@
       return 'rgba(' + Math.round(c[0] * 255) + ',' + Math.round(c[1] * 255) + ',' + Math.round(c[2] * 255) + ',' + a + ')';
     };
     const layers = [
-      { off: 0, sp: 4, base: 0.52, amp: 0.2, col: shade(0.2, 0.85), eq: 0.03 },
-      { off: 40, sp: 9, base: 0.66, amp: 0.26, col: shade(0.13, 0.95), eq: 0.05 },
-      { off: 90, sp: 16, base: 0.8, amp: 0.3, col: shade(0.07, 1), eq: 0.08 }
+      { off: 0, sp: 4, base: 0.52, amp: 0.2, col: shade(0.74, 0.5), eq: 0.03 },
+      { off: 40, sp: 9, base: 0.66, amp: 0.26, col: shade(0.55, 0.6), eq: 0.05 },
+      { off: 90, sp: 16, base: 0.8, amp: 0.3, col: shade(0.38, 0.7), eq: 0.08 }
     ];
     function draw(t) {
       ctx2.clearRect(0, 0, MW, MH);
@@ -2522,7 +2528,7 @@
           ctx2.fillRect(x, y, CELL - 1, MH - y);
         }
       }
-      ctx2.fillStyle = 'rgba(242,163,60,0.06)';
+      ctx2.fillStyle = 'rgba(214,58,30,0.1)';
       ctx2.fillRect(0, MH * 0.79, MW, 2);
     }
     if (reduceMotion) { draw(0); return; }

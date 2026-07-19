@@ -1,12 +1,15 @@
 # Tuneland
 
-Your music, as a place. Tuneland turns your songs into a voxel world your
+Your songs, as a place. Tuneland turns your music into a voxel world your
 fans can walk, fly and dig through. You bury real loot for them: links to a
 new release, coupon codes, notes. Your world can link corners with other
 artists' worlds, so fans wander from your land straight into theirs.
 
-Your world runs on **your own** free Cloudflare account and **your own**
-GitHub account. Nobody else holds your music or your data.
+Tuneland runs the way a good DIY gig runs. Your world lives on **your own**
+free Cloudflare account and **your own** GitHub account: no sponsors, no
+platform in the middle, no cut taken, and nobody else holds your music or
+your data. On the public map every world gets the same size type, whether
+it registered first or fiftieth. There are no headliners here.
 
 ## Get your world (no coding, about five minutes)
 
