@@ -2476,6 +2476,63 @@
   paintFriends();
   $('btnMute').textContent = Sfx.muted ? '✕' : '♪';
 
+  /* ── menu backdrop: slow voxel ridges in the world's own colors ── */
+  function menuBackdrop(hue) {
+    const cv = $('menuBg');
+    if (!cv) return;
+    const ctx2 = cv.getContext('2d');
+    if (!ctx2) return;
+    let MW = 0, MH = 0;
+    function size() {
+      const dpr = Math.min(devicePixelRatio || 1, 2);
+      MW = innerWidth; MH = innerHeight;
+      cv.width = MW * dpr; cv.height = MH * dpr;
+      ctx2.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    addEventListener('resize', () => { size(); if (reduceMotion) draw(0); });
+    size();
+    const rnd = seeded('backdrop|' + (W.cfg ? W.cfg.worldId : 'x'));
+    const bump = [];
+    for (let i = 0; i < 96; i++) bump.push(rnd());
+    function ridge(x, off, rough) {
+      const u = x * 0.006 + off;
+      const i = Math.floor(u), f = u - i;
+      const a = bump[((i % 96) + 96) % 96], b = bump[(((i + 1) % 96) + 96) % 96];
+      return lerp(a, b, f * f * (3 - 2 * f)) * rough;
+    }
+    const shade = (l, a) => {
+      const c = hsl2rgb(hue, 0.4, l);
+      return 'rgba(' + Math.round(c[0] * 255) + ',' + Math.round(c[1] * 255) + ',' + Math.round(c[2] * 255) + ',' + a + ')';
+    };
+    const layers = [
+      { off: 0, sp: 4, base: 0.52, amp: 0.2, col: shade(0.2, 0.85), eq: 0.03 },
+      { off: 40, sp: 9, base: 0.66, amp: 0.26, col: shade(0.13, 0.95), eq: 0.05 },
+      { off: 90, sp: 16, base: 0.8, amp: 0.3, col: shade(0.07, 1), eq: 0.08 }
+    ];
+    function draw(t) {
+      ctx2.clearRect(0, 0, MW, MH);
+      const CELL = 14;
+      for (const L of layers) {
+        ctx2.fillStyle = L.col;
+        for (let x = 0; x < MW + CELL; x += CELL) {
+          const scroll = L.off + t * 0.00002 * L.sp;
+          let y = MH * L.base - (ridge(x, scroll, 1) * L.amp * MH);
+          y -= Math.max(0, Math.sin(t * 0.001 + x * 0.02) * L.eq * MH * ridge(x, scroll + 31, 1));
+          y = Math.floor(y / CELL) * CELL;
+          ctx2.fillRect(x, y, CELL - 1, MH - y);
+        }
+      }
+      ctx2.fillStyle = 'rgba(198,242,78,0.06)';
+      ctx2.fillRect(0, MH * 0.79, MW, 2);
+    }
+    if (reduceMotion) { draw(0); return; }
+    (function loop(t) {
+      requestAnimationFrame(loop);
+      if (S.playing || document.hidden) return;
+      draw(t);
+    })(0);
+  }
+
   (DEMO ? Promise.resolve(normalizeConfig(demoConfig(), OWN_ORIGIN)) : loadConfig(OWN_ORIGIN).then((cfg) => cfg || normalizeConfig(demoConfig(), OWN_ORIGIN)))
     .then((cfg) => {
       W.cfg = cfg;
@@ -2484,6 +2541,46 @@
       $('mArtist').textContent = cfg.artist ? 'A world by ' + cfg.artist : '';
       $('mBio').textContent = cfg.bio || '';
       $('footWorld').textContent = cfg.name;
+      // fan-facing pitch, in this world's own terms
+      $('mEyebrow').textContent = cfg.tracks.length && cfg.artist
+        ? 'The music of ' + cfg.artist + ', as a place'
+        : 'A Tuneland world';
+      $('mPitch').textContent = 'Real loot is buried in this land' +
+        (cfg.artist ? ': things ' + cfg.artist + ' left for the ones who come looking. ' : '. ') +
+        'Follow the radar, dig it up, and keep what you find.';
+      if (cfg.tracks.length) {
+        $('chipTracks').style.display = '';
+        $('chipTracksText').textContent = cfg.tracks.length === 1
+          ? '1 piece of music to walk'
+          : cfg.tracks.length + ' pieces of music to walk';
+      }
+      if (cfg.links.length) {
+        $('chipLinks').style.display = '';
+        $('chipLinksText').textContent = cfg.links.length === 1
+          ? '1 world next door'
+          : cfg.links.length + ' worlds next door';
+      }
+      // search engines get this world's real identity
+      try {
+        const ld = document.createElement('script');
+        ld.type = 'application/ld+json';
+        ld.textContent = JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'VideoGame',
+          name: cfg.name,
+          url: location.origin + '/',
+          description: 'A free voxel world built from ' + (cfg.artist || 'an artist') + '’s work. Walk the music, dig up buried loot, and cross into linked worlds. No download, no account.',
+          genre: ['Music', 'Adventure'],
+          gamePlatform: ['Web browser', 'Mobile', 'Desktop'],
+          isAccessibleForFree: true,
+          author: cfg.artist ? { '@type': 'MusicGroup', name: cfg.artist } : undefined,
+          publisher: { '@type': 'Organization', name: 'Tuneland', url: 'https://midhrami.com/tuneland/' }
+        });
+        document.head.appendChild(ld);
+      } catch (e) {}
+      const bgHue = cfg.tracks.length && cfg.tracks[0].hue !== null && cfg.tracks[0].hue !== undefined
+        ? cfg.tracks[0].hue : (xmur3('hue|' + cfg.worldId)() % 1000) / 1000;
+      menuBackdrop(bgHue);
       if (!cfg.demo) {
         fetchJson(cfg.origin + '/api/leaderboard', {}, 6000).then((d) => {
           if (!d || !d.ok || !Array.isArray(d.top) || !d.top.length) return;

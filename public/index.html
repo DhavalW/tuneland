@@ -72,8 +72,34 @@
     }
     .chip .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--acid); box-shadow: 0 0 8px var(--acid); }
 
+    #menuBg { position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.85; }
+    .vignette {
+      position: fixed; inset: 0; z-index: 2; pointer-events: none;
+      background: radial-gradient(120% 100% at 50% 40%, transparent 55%, rgba(2,6,12,0.6) 100%);
+    }
+    body.playing #menuBg, body.playing .vignette { display: none; }
+    .world-pitch { margin-top: 1rem; font-size: 0.8rem; color: var(--bone); max-width: 40ch; line-height: 1.8; text-shadow: 0 2px 14px rgba(2,8,16,0.9); }
+    .stat-row { display: flex; gap: 0.5rem; margin-top: 1.2rem; flex-wrap: wrap; }
+    .prose {
+      position: relative; z-index: 5;
+      max-width: 640px; margin: 0 auto; padding: 3rem 1.5rem;
+      border-top: 1px solid var(--line);
+      background: rgba(8,16,26,0.55);
+    }
+    .prose h2 { font-family: var(--disp); font-weight: 700; font-size: clamp(1.4rem, 5vw, 2rem); letter-spacing: -0.02em; margin-bottom: 1rem; }
+    .prose h2 em { font-style: normal; color: var(--acid); }
+    .prose p { font-size: 0.78rem; color: var(--bone-70); line-height: 1.9; margin-bottom: 1rem; max-width: 62ch; }
+    .prose p b { color: var(--bone); }
+    details.faq { border: 1px solid var(--line); border-radius: 12px; margin-bottom: 0.6rem; background: rgba(16,32,47,0.6); }
+    details.faq summary { cursor: pointer; padding: 0.9rem 1.1rem; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+    details.faq summary::-webkit-details-marker { display: none; }
+    details.faq summary::after { content: '+'; color: var(--acid); flex-shrink: 0; }
+    details.faq[open] summary::after { content: '−'; }
+    details.faq p { padding: 0 1.1rem 1rem; margin: 0; font-size: 0.74rem; color: var(--bone-70); line-height: 1.8; }
+
     /* ── menu ── */
     .hero { max-width: 640px; margin: 0 auto; padding: calc(2rem + var(--safe-t)) 1.5rem 3rem; position: relative; z-index: 5; }
+    .site-foot { position: relative; z-index: 5; }
     .eyebrow { display: flex; align-items: center; gap: 0.7rem; font-size: 0.62rem; letter-spacing: 0.28em; text-transform: uppercase; color: var(--acid-dim); }
     .eyebrow::before { content: ''; width: 26px; height: 1px; background: var(--acid-dim); }
     h1.world-title {
@@ -139,7 +165,7 @@
     #game { position: fixed; inset: 0; z-index: 20; display: none; background: #05090f; }
     #game.on { display: block; }
     #gl { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; display: block; }
-    body.playing main, body.playing footer { display: none; }
+    body.playing main, body.playing footer, body.playing section.prose { display: none; }
 
     .hud-top {
       position: absolute; top: 0; left: 0; right: 0; z-index: 5;
@@ -266,12 +292,21 @@
 </head>
 <body>
 
+  <canvas id="menuBg" aria-hidden="true"></canvas>
+  <div class="vignette" aria-hidden="true"></div>
+
   <main>
     <section class="hero">
-      <p class="eyebrow">A Tuneland world</p>
+      <p class="eyebrow" id="mEyebrow">A Tuneland world</p>
       <h1 class="world-title" id="mTitle">Loading this world…</h1>
       <p class="world-artist" id="mArtist"></p>
       <p class="world-bio" id="mBio"></p>
+      <p class="world-pitch" id="mPitch">Real loot is buried in this land. Follow the radar, dig it up, and keep what you find.</p>
+      <div class="stat-row">
+        <span class="chip" id="chipTracks" style="display:none"><span class="dot"></span><span id="chipTracksText"></span></span>
+        <span class="chip"><span class="dot" style="background:var(--ice);box-shadow:0 0 8px var(--ice)"></span>a new echo hides here today</span>
+        <span class="chip" id="chipLinks" style="display:none"><span class="dot" style="background:var(--coral);box-shadow:0 0 8px var(--coral)"></span><span id="chipLinksText"></span></span>
+      </div>
       <div class="menu-ctas">
         <button class="btn-primary" id="btnPlay">▶ &nbsp;Enter the world</button>
         <button class="btn-ghost" id="btnPassport">🎒 &nbsp;Your passport</button>
@@ -312,6 +347,36 @@
       </ul>
     </section>
   </main>
+
+  <section class="prose">
+    <h2>A place, not a <em>playlist</em></h2>
+    <p>This world is built out of its maker's work. Loud passages rise into ridges, quiet ones sink into lakes, and the ground you stand on decides what you hear. Glowing markers cross the land every 30 seconds of a piece, so you always know how deep in you are.</p>
+    <p><b>The loot is real.</b> Somewhere out there are buried chests holding things the artist left for whoever comes looking: early links, codes, notes. Your radar wakes up when you get close and pings faster as you close in. Some drops are limited to the first few finders, some vanish on a clock, and your finder number is yours forever.</p>
+    <p>Everything you do here goes in your passport: worlds visited, chests found, pieces walked end to end, day streaks from the daily echo, even the glooms you manage to tame in the corner arenas. Snap a photo and the frame carries a link that drops your friends at the exact spot you stood. Start a race and a friend can run against your ghost.</p>
+    <p>Corners of this world may lead into other artists' lands. Keep walking and you cross over, music and all, no loading screen.</p>
+
+    <h2>Questions, answered</h2>
+    <details class="faq">
+      <summary>Is this free?</summary>
+      <p>Yes. No download, no account, no signup. Open the page and walk in. Your name and passport live only on your device.</p>
+    </details>
+    <details class="faq">
+      <summary>Does it work on my phone?</summary>
+      <p>Yes, it is built phone-first. Left thumb walks, right thumb looks, tap to dig. On a computer, WASD and the mouse, F to fly.</p>
+    </details>
+    <details class="faq">
+      <summary>What do I actually do here?</summary>
+      <p>Wander and listen: the ground is the music. Hunt loot with the radar. Find the daily echo to build a streak. Dodge (or tame) the glooms in the corner arenas. Add friends and get a heads-up when they are in your area. Cross into linked worlds next door.</p>
+    </details>
+    <details class="faq">
+      <summary>What is in the loot?</summary>
+      <p>Whatever the artist buried: links to new releases, coupon codes, notes for early fans. Some drops are limited, so being early counts, and your finder number is recorded with every chest you open.</p>
+    </details>
+    <details class="faq">
+      <summary>What is the daily echo?</summary>
+      <p>One glowing block, hidden somewhere new every day, the same spot for everyone. Find it and your streak grows. Miss a day and it resets.</p>
+    </details>
+  </section>
 
   <footer class="site-foot">
     <span id="footWorld">A Tuneland world</span>
