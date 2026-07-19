@@ -95,16 +95,38 @@ neighbor's config from the neighbor's own Worker, cross-origin) and rebuilds
 the far chunks. The fan never sees a seam or a loading screen: the blocks
 around them do not change. Flying and walking both cross the same way.
 
-**Music.** Each area is assigned one of the artist's tracks. Tracks are
-uploaded in the dashboard to the artist's own R2 bucket and served by their
-own Worker (`/api/songs/…`), which satisfies "their songs served via their
-own CF". The dashboard analyzes the audio in the artist's browser at upload
-time (same envelope analysis as Terrain) and stores the envelope in D1, so
-every fan gets the same music-shaped ambience deterministically: sky pulse,
-glow, particles, weather driven by the envelope and beats. Terrain geometry
-itself stays seed-only, so two fans always agree on the ground even if audio
-fails to load. iTunes 30-second previews are the fallback for artists who
-have nothing to upload yet.
+**Music models the terrain.** Tracks are uploaded in the dashboard to the
+artist's own R2 bucket and served by their own Worker (`/api/songs/…`),
+which satisfies "their songs served via their own CF". The dashboard
+analyzes the audio in the artist's browser at upload time (same envelope
+analysis as Terrain) and stores the envelope in D1. That stored envelope is
+authoritative, so the geometry it drives is identical for every fan even
+when audio fails to load: loud passages rise into ridges, quiet passages
+sink into water valleys.
+
+The artist picks the world's shape in the dashboard:
+
+- **Concentric rings**: the first song is the innermost land, each next
+  song a ring around it; walking outward from the center walks the
+  discography in order.
+- **Rectangular lanes**: each song gets its own north-to-south lane,
+  adjacent west to east in order; walking south walks through the song.
+
+Songs are ordered and colored per track in the dashboard. Whichever song's
+ground a fan stands on is the song they hear, seeked to roughly that point
+of the track. **Time markers**: every 30 seconds of song time is marked on
+the land as a glowing stripe plus pylons carrying the time in floating
+voxel digits (rings mark at the four compass points of each ring, lanes
+gate each lane), and the HUD shows the song and position continuously.
+Corner arenas stay outside the song mapping: they are neutral shared
+ground, colored from the arena key so both sides of a link render them
+identically. Tracks with no stored envelope get a deterministic
+pseudo-envelope, and worlds with no tracks fall back to plain seeded hills.
+
+**Rights.** Artists host these files on their own accounts, in public, so
+the dashboard carries a copyright warning and a per-upload confirmation
+that the artist holds the rights to the recording; the README and the hub
+landing page repeat it.
 
 ## Fan gameplay
 
@@ -218,7 +240,9 @@ POST /api/loot/claim               {lootId, fanId} -> contents | gone
 GET  /api/songs/<key>              stream from R2
 WS   /api/presence/<areaKey>       presence hub (Durable Object)
 POST /api/admin/claim              first-claim of a fresh world
-GET/PUT /api/admin/profile         name, artist, bio, area hues, track map
+GET/PUT /api/admin/profile         name, artist, bio, world layout
+POST /api/admin/tracks/reorder     song order (terrain order)
+PUT  /api/admin/tracks/:id         song title and color
 POST/DELETE /api/admin/tracks      upload song (+envelope) / remove
 GET/POST/DELETE /api/admin/loot    manage loot (full contents + counts)
 POST /api/admin/register           register/refresh with the hub
@@ -263,8 +287,6 @@ and every page and world degrades gracefully.
 
 ## Out of scope for v1 (noted for later)
 
-- Music-driven terrain *geometry* (needs the envelope to be authoritative
-  before first render; v1 drives ambience, palette and set pieces instead).
 - Live avatar movement smoother than 10-second beacons.
 - Loot anti-cheat beyond per-fan claim uniqueness and rate limits (it is an
   arcade, not a bank).

@@ -19,6 +19,8 @@ const SCHEMA = [
      r2_key TEXT,
      source_url TEXT,
      envelope TEXT,
+     ord INTEGER,
+     hue REAL,
      created_at INTEGER
    )`,
   `CREATE TABLE IF NOT EXISTS loot (
@@ -45,10 +47,19 @@ const SCHEMA = [
    )`
 ];
 
+// columns added after v1 shipped; harmless no-ops on fresh databases
+const ALTERS = [
+  `ALTER TABLE tracks ADD COLUMN ord INTEGER`,
+  `ALTER TABLE tracks ADD COLUMN hue REAL`
+];
+
 let schemaReady = false;
 async function ensureSchema(env) {
   if (schemaReady) return;
   await env.DB.batch(SCHEMA.map((s) => env.DB.prepare(s)));
+  for (const a of ALTERS) {
+    try { await env.DB.prepare(a).run(); } catch (e) { /* column already there */ }
+  }
   schemaReady = true;
 }
 
@@ -185,7 +196,8 @@ const DEFAULT_PROFILE = {
   worldName: 'A new Tuneland world',
   artist: 'Unnamed artist',
   bio: '',
-  hues: [0.62, 0.55, 0.08, 0.45, 0.33, 0.72, 0.85, 0.25, 0.95], // per area 0..8
+  layout: 'rings', // 'rings' (concentric, first song innermost) or 'lanes' (one lane per song)
+  hues: [0.62, 0.55, 0.08, 0.45, 0.33, 0.72, 0.85, 0.25, 0.95], // legacy per-area hues, kept for older clients
   areaTracks: [null, null, null, null, null, null, null, null, null]
 };
 
@@ -193,7 +205,7 @@ async function worldConfig(env, ctx) {
   const worldId = await metaGet(env, 'world_id');
   const profile = await metaGetJson(env, 'profile', DEFAULT_PROFILE);
   const tracks = await env.DB.prepare(
-    'SELECT id, title, r2_key, source_url, envelope FROM tracks ORDER BY created_at'
+    'SELECT id, title, r2_key, source_url, envelope, hue FROM tracks ORDER BY (ord IS NULL), ord, created_at'
   ).all();
   const links = await metaGetJson(env, 'links_cache', { at: 0, links: [] });
   // refresh the link cache in the background when it is stale
@@ -208,12 +220,14 @@ async function worldConfig(env, ctx) {
     name: profile.worldName,
     artist: profile.artist,
     bio: profile.bio,
+    layout: profile.layout || 'rings',
     hues: profile.hues,
     areaTracks: profile.areaTracks,
     tracks: (tracks.results || []).map((t) => ({
       id: t.id,
       title: t.title,
       url: t.r2_key ? '/api/songs/' + t.id : t.source_url,
+      hue: typeof t.hue === 'number' ? t.hue : null,
       envelope: t.envelope ? JSON.parse(t.envelope) : null
     })),
     links: links.links || []
@@ -390,6 +404,7 @@ async function handleAdmin(request, env, ctx, path, method, who, bodyBytes, url)
         worldName: str(b.worldName, cur.worldName, 80),
         artist: str(b.artist, cur.artist, 80),
         bio: str(b.bio, cur.bio, 400),
+        layout: b.layout === 'lanes' || b.layout === 'rings' ? b.layout : (cur.layout || 'rings'),
         hues: Array.isArray(b.hues) && b.hues.length === 9
           ? b.hues.map((h) => clamp01(Number(h) || 0)) : cur.hues,
         areaTracks: Array.isArray(b.areaTracks) && b.areaTracks.length === 9
@@ -410,7 +425,7 @@ async function handleAdmin(request, env, ctx, path, method, who, bodyBytes, url)
 
   if (path === '/api/admin/tracks' && method === 'GET') {
     const rows = await env.DB.prepare(
-      'SELECT id, title, r2_key, source_url, envelope IS NOT NULL AS analyzed, created_at FROM tracks ORDER BY created_at'
+      'SELECT id, title, r2_key, source_url, hue, envelope IS NOT NULL AS analyzed, created_at FROM tracks ORDER BY (ord IS NULL), ord, created_at'
     ).all();
     return json({ ok: true, tracks: rows.results || [] });
   }
@@ -419,12 +434,14 @@ async function handleAdmin(request, env, ctx, path, method, who, bodyBytes, url)
     // Body is either raw audio bytes (?title=...) or JSON {title, sourceUrl}
     const contentType = request.headers.get('content-type') || '';
     const id = 't' + randHex(6);
+    // stable default hue from the id, so every fan colors the song the same
+    const hue = (parseInt(id.slice(1, 7), 16) % 1000) / 1000;
     if (contentType.startsWith('application/json')) {
       const b = parseJsonBody(bodyBytes);
       if (!b || !str(b.sourceUrl, '', 500)) return err('bad body');
       await env.DB.prepare(
-        'INSERT INTO tracks (id, title, source_url, created_at) VALUES (?, ?, ?, ?)'
-      ).bind(id, str(b.title, 'Untitled', 120), str(b.sourceUrl, '', 500), Date.now()).run();
+        'INSERT INTO tracks (id, title, source_url, ord, hue, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+      ).bind(id, str(b.title, 'Untitled', 120), str(b.sourceUrl, '', 500), Date.now(), hue, Date.now()).run();
       return json({ ok: true, id });
     }
     if (bodyBytes.byteLength < 1000) return err('empty audio');
@@ -434,9 +451,21 @@ async function handleAdmin(request, env, ctx, path, method, who, bodyBytes, url)
       httpMetadata: { contentType: contentType.startsWith('audio/') ? contentType : 'audio/mpeg' }
     });
     await env.DB.prepare(
-      'INSERT INTO tracks (id, title, r2_key, created_at) VALUES (?, ?, ?, ?)'
-    ).bind(id, str(url.searchParams.get('title'), 'Untitled', 120), key, Date.now()).run();
+      'INSERT INTO tracks (id, title, r2_key, ord, hue, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+    ).bind(id, str(url.searchParams.get('title'), 'Untitled', 120), key, Date.now(), hue, Date.now()).run();
     return json({ ok: true, id });
+  }
+
+  if (path === '/api/admin/tracks/reorder' && method === 'POST') {
+    const b = parseJsonBody(bodyBytes);
+    if (!b || !Array.isArray(b.ids) || b.ids.length > 100) return err('bad order');
+    const stmts = [];
+    for (let i = 0; i < b.ids.length; i++) {
+      if (typeof b.ids[i] !== 'string') return err('bad order');
+      stmts.push(env.DB.prepare('UPDATE tracks SET ord = ? WHERE id = ?').bind(i, b.ids[i]));
+    }
+    if (stmts.length) await env.DB.batch(stmts);
+    return json({ ok: true });
   }
 
   const trackEnvM = path.match(/^\/api\/admin\/tracks\/([\w-]+)\/envelope$/);
@@ -451,6 +480,18 @@ async function handleAdmin(request, env, ctx, path, method, who, bodyBytes, url)
     const r = await env.DB.prepare('UPDATE tracks SET envelope = ? WHERE id = ?')
       .bind(JSON.stringify(envelope), trackEnvM[1]).run();
     if (!r.meta.changes) return err('no such track', 404);
+    return json({ ok: true });
+  }
+
+  const trackPutM = path.match(/^\/api\/admin\/tracks\/([\w-]+)$/);
+  if (trackPutM && method === 'PUT') {
+    const b = parseJsonBody(bodyBytes);
+    if (!b) return err('bad body');
+    const t = await env.DB.prepare('SELECT id, title, hue FROM tracks WHERE id = ?').bind(trackPutM[1]).first();
+    if (!t) return err('no such track', 404);
+    const title = str(b.title, t.title, 120);
+    const hue = Number.isFinite(Number(b.hue)) ? clamp01(Number(b.hue)) : t.hue;
+    await env.DB.prepare('UPDATE tracks SET title = ?, hue = ? WHERE id = ?').bind(title, hue, t.id).run();
     return json({ ok: true });
   }
 

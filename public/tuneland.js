@@ -109,9 +109,14 @@
     return {
       ok: true, worldId: 'wdemo0000demo', name: 'Tuneland demo world', artist: 'The Tuneland makers',
       bio: 'A world with no artist yet. Wander, dig, meet the glooms.',
+      layout: 'rings',
       hues: [0.62, 0.55, 0.08, 0.45, 0.33, 0.72, 0.85, 0.25, 0.95],
       areaTracks: [null, null, null, null, null, null, null, null, null],
-      tracks: [], links: [], demo: true
+      tracks: [
+        { id: 'demoA', title: 'First movement', url: null, hue: 0.33, envelope: null },
+        { id: 'demoB', title: 'Second movement', url: null, hue: 0.62, envelope: null }
+      ],
+      links: [], demo: true
     };
   }
   function normalizeConfig(d, origin) {
@@ -121,11 +126,13 @@
       name: String(d.name || 'A Tuneland world').slice(0, 80),
       artist: String(d.artist || '').slice(0, 80),
       bio: String(d.bio || '').slice(0, 400),
+      layout: d.layout === 'lanes' || d.layout === 'rectangular' ? 'lanes' : 'rings',
       hues: Array.isArray(d.hues) && d.hues.length === 9 ? d.hues.map((h) => clamp(Number(h) || 0, 0, 1)) : demoConfig().hues,
       areaTracks: Array.isArray(d.areaTracks) && d.areaTracks.length === 9 ? d.areaTracks : demoConfig().areaTracks,
       tracks: Array.isArray(d.tracks) ? d.tracks.slice(0, 24).map((t) => ({
         id: String(t.id || ''), title: String(t.title || 'Untitled').slice(0, 120),
         url: typeof t.url === 'string' ? t.url : null,
+        hue: Number.isFinite(Number(t.hue)) ? clamp(Number(t.hue), 0, 1) : null,
         envelope: t.envelope && Array.isArray(t.envelope.env) ? t.envelope : null
       })) : [],
       links: Array.isArray(d.links) ? d.links.filter((l) => l && l.other && l.other.id && [1, 3, 5, 7].indexOf(Number(l.corner)) >= 0)
@@ -155,7 +162,9 @@
 
   /* ═══════════ world math ═══════════ */
   const AREA = 96, GRID = 3, SXZ = AREA * GRID, SY = 48, SEA = 12, CS = 16, CGRID = SXZ / CS;
-  const AIR = 0, GRASS = 1, DIRT = 2, STONE = 3, SAND = 4, WATER = 5, WOOD = 6, LEAF = 7, CHEST = 8, ROCK = 9, SNOW = 10, PILLAR = 11;
+  const AIR = 0, GRASS = 1, DIRT = 2, STONE = 3, SAND = 4, WATER = 5, WOOD = 6, LEAF = 7, CHEST = 8, ROCK = 9, SNOW = 10, PILLAR = 11, MARKER = 12;
+  const RMAX = 138;   // rings layout: outer radius of the modeled discography
+  const LANE_M = 14;  // lanes layout: shoreline margin before the timeline starts
 
   // corner numbering per the design: 1=NW 3=NE 5=SE 7=SW (clockwise from top-left)
   const CORNER_AREA = { 1: 0, 3: 2, 5: 8, 7: 6 };      // corner number -> area index (row-major)
@@ -182,10 +191,11 @@
   /* ═══════════ world generation ═══════════ */
   const W = {
     cfg: null,          // active world config
-    blocks: null, heights: null,
+    blocks: null, heights: null, markers: null,
     n2: null,           // world-seed noise
     arenaFns: {},       // corner number -> {n2, key}
-    palettes: [],       // per area
+    songs: [],          // ordered: [{id,title,url,hue,dur,arr,beats,pal}]
+    arenaPals: {}, fallbackPal: null,
     lootByArea: {},     // areaKey -> [{id,x,z,origin}]
     lootBlocks: new Map(), // "x,z,y" -> loot entry
     trees: [], ready: false
@@ -199,22 +209,45 @@
   }
   const isSolid = (x, y, z) => { const b = getB(x, y, z); return b !== AIR && b !== WATER; };
 
-  function buildPalettes(cfg) {
-    W.palettes = cfg.hues.map((hue, i) => {
-      const arena = isCornerArea(i);
-      const top = hsl2rgb(hue, arena ? 0.32 : 0.48, arena ? 0.36 : 0.44);
+  function palFromHue(hue, arena) {
+    const top = hsl2rgb(hue, arena ? 0.32 : 0.48, arena ? 0.36 : 0.44);
+    return {
+      top,
+      side: scale3(mix3(top, [0.45, 0.33, 0.22], 0.55), 0.95),
+      dirt: mix3([0.45, 0.33, 0.22], top, 0.2),
+      stone: mix3([0.5, 0.52, 0.56], top, 0.22),
+      sand: mix3([0.85, 0.78, 0.54], top, 0.15),
+      water: mix3([0.16, 0.4, 0.62], hsl2rgb(hue, 0.5, 0.4), 0.35),
+      leaf: hsl2rgb((hue + 0.06) % 1, 0.45, 0.38),
+      snow: mix3([0.9, 0.92, 0.95], top, 0.12),
+      accent: hsl2rgb((hue + 0.5) % 1, 0.85, 0.6),
+      sky: scale3(hsl2rgb(hue, 0.45, 0.32), 0.75),
+      fog: hsl2rgb(hue, 0.3, 0.45)
+    };
+  }
+
+  /* a plausible song arc for tracks with no stored analysis, deterministic
+     for everyone so the terrain still agrees across fans */
+  function pseudoEnvelope(seedKey) {
+    const rand = seeded(seedKey);
+    const n = 300, env = new Array(n), dur = 30;
+    for (let i = 0; i < n; i++) env[i] = clamp(0.32 + 0.3 * Math.sin(i / 18 + rand() * 6) + rand() * 0.12, 0, 1);
+    const bpm = 92 + Math.floor(rand() * 40);
+    const beats = [];
+    for (let t = 0.5; t < dur; t += 60 / bpm) beats.push(t);
+    return { dur, env, beats };
+  }
+
+  function buildSongs(cfg) {
+    W.songs = cfg.tracks.map((t) => {
+      let envd = t.envelope;
+      if (!envd || !Array.isArray(envd.env) || !envd.env.length) envd = pseudoEnvelope('pseudoenv|' + t.id);
+      const hue = t.hue !== null && t.hue !== undefined ? t.hue : (xmur3('hue|' + t.id)() % 1000) / 1000;
       return {
-        top,
-        side: scale3(mix3(top, [0.45, 0.33, 0.22], 0.55), 0.95),
-        dirt: mix3([0.45, 0.33, 0.22], top, 0.2),
-        stone: mix3([0.5, 0.52, 0.56], top, 0.22),
-        sand: mix3([0.85, 0.78, 0.54], top, 0.15),
-        water: mix3([0.16, 0.4, 0.62], hsl2rgb(hue, 0.5, 0.4), 0.35),
-        leaf: hsl2rgb((hue + 0.06) % 1, 0.45, 0.38),
-        snow: mix3([0.9, 0.92, 0.95], top, 0.12),
-        accent: hsl2rgb((hue + 0.5) % 1, 0.85, 0.6),
-        sky: scale3(hsl2rgb(hue, 0.45, 0.32), 0.75),
-        fog: hsl2rgb(hue, 0.3, 0.45)
+        id: t.id, title: t.title, url: t.url, hue,
+        dur: clamp(Number(envd.dur) || 30, 10, 600),
+        arr: envd.env, beats: Array.isArray(envd.beats) ? envd.beats : [],
+        pal: palFromHue(hue, false)
       };
     });
   }
@@ -222,23 +255,78 @@
   function terrainFns(cfg) {
     W.n2 = makeNoise2D(seeded('world|' + cfg.worldId));
     W.arenaFns = {};
+    W.arenaPals = {};
     for (const c of [1, 3, 5, 7]) {
       const key = linkKeyFor(cfg, c) || ('arena|' + cfg.worldId + '.' + c);
       W.arenaFns[c] = { key, n2: makeNoise2D(seeded(key)) };
+      // arena colors derive from the arena key, so a shared arena looks
+      // identical from both linked worlds
+      W.arenaPals[c] = palFromHue((xmur3('arenahue|' + key)() % 1000) / 1000, true);
     }
+    W.fallbackPal = palFromHue(cfg.hues[4], false);
   }
 
-  function ownHeight(x, z) {
-    const n = W.n2(x / 34, z / 34) + 0.5 * W.n2(x / 13, z / 13) + 0.25 * W.n2(x / 6, z / 6);
-    let h = 4 + (n / 1.75) * 22;
-    // the home stage sits a little proud of the fields
-    const dx = (x - SXZ / 2) / (SXZ / 2), dz = (z - SXZ / 2) / (SXZ / 2);
-    const dc = Math.sqrt(dx * dx + dz * dz);
-    h += Math.max(0, 1 - dc * 2.2) * 5;
+  function sampleEnv(song, t) {
+    const arr = song.arr;
+    const f = clamp(t / song.dur * arr.length, 0, arr.length - 1.001);
+    const i = f | 0;
+    return lerp(arr[i], arr[Math.min(arr.length - 1, i + 1)], f - i);
+  }
+
+  /* which song models the terrain at (x,z), and where in it we are.
+     rings: first song is the innermost disc, later songs ring outward.
+     lanes: each song is a north-to-south lane, west to east in order. */
+  function songAt(x, z) {
+    const n = W.songs.length;
+    if (!n) return null;
+    if (W.cfg.layout === 'lanes') {
+      const song0 = clamp(Math.floor(x / SXZ * n), 0, n - 1);
+      const song = W.songs[song0];
+      const span = SXZ - 2 * LANE_M;
+      const t = clamp((z - LANE_M) / span, 0, 1) * song.dur;
+      return { song, idx: song0, t, tPerBlock: song.dur / span };
+    }
+    const r = Math.hypot(x - SXZ / 2, z - SXZ / 2);
+    const band = RMAX / n;
+    if (r >= RMAX) {
+      const song = W.songs[n - 1];
+      return { song, idx: n - 1, t: song.dur, tPerBlock: song.dur / band, beyond: true };
+    }
+    const idx = clamp(Math.floor(r / band), 0, n - 1);
+    const song = W.songs[idx];
+    return { song, idx, t: (r - idx * band) / band * song.dur, tPerBlock: song.dur / band };
+  }
+
+  function paletteAt(x, z) {
+    const c = AREA_CORNER[areaOf(x, z)];
+    if (c !== undefined && W.arenaPals[c]) return W.arenaPals[c];
+    const sa = songAt(x, z);
+    return sa ? sa.song.pal : W.fallbackPal;
+  }
+  const palAtPlayer = () => paletteAt(clamp(P.x, 0, SXZ - 1), clamp(P.z, 0, SXZ - 1));
+
+  /* the land is the music: loud is high and jagged, quiet sinks into water */
+  function baseHeight(x, z) {
+    const sa = songAt(x, z);
+    let h;
+    if (!sa) {
+      const n = W.n2(x / 34, z / 34) + 0.5 * W.n2(x / 13, z / 13) + 0.25 * W.n2(x / 6, z / 6);
+      h = 4 + (n / 1.75) * 22;
+      const dx = (x - SXZ / 2) / (SXZ / 2), dz = (z - SXZ / 2) / (SXZ / 2);
+      h += Math.max(0, 1 - Math.sqrt(dx * dx + dz * dz) * 2.2) * 5;
+    } else {
+      const level = sampleEnv(sa.song, sa.t);
+      h = 4.5 + level * 20 +
+        W.n2(x / 7.5, z / 7.5) * (1.2 + level * 5.5) +
+        W.n2(x / 23 + 9.1, z / 23) * 2.5 * level;
+      const calm = clamp(level / 0.22, 0, 1);
+      const s = calm * calm * (3 - 2 * calm);
+      h = lerp(1.5 + W.n2(x / 11, z / 11) * 1.6, h, s);
+      if (sa.beyond) h = Math.min(h, 3);
+    }
     // shoreline: the grid is an island in a void sea
     const edge = Math.min(x, z, SXZ - 1 - x, SXZ - 1 - z);
-    h = lerp(1, h, clamp(edge / 18, 0, 1));
-    return h;
+    return lerp(1, h, clamp(edge / 18, 0, 1));
   }
   function arenaHeight(fn, u, v) {
     // arenas: a sunken bowl with a rim, easy to read, fair to fight in
@@ -252,7 +340,7 @@
   function heightAt(x, z) {
     const ai = areaOf(x, z);
     const corner = AREA_CORNER[ai];
-    const base = ownHeight(x, z);
+    const base = baseHeight(x, z);
     if (corner === undefined) return base;
     const fn = W.arenaFns[corner];
     const [tc, tr] = CORNER_TILE0[corner];
@@ -274,7 +362,7 @@
 
   function genWorld(cfg, onlyHeights) {
     W.cfg = cfg;
-    buildPalettes(cfg);
+    buildSongs(cfg);
     terrainFns(cfg);
     W.blocks = new Uint8Array(SXZ * SY * SXZ);
     W.heights = new Uint8Array(SXZ * SXZ);
@@ -336,7 +424,100 @@
         for (let y = h + 1; y <= Math.min(SY - 2, h + ph); y++) W.blocks[bIdx(x, y, z)] = PILLAR;
       }
     }
+
+    buildTimeMarkers();
     W.ready = true;
+  }
+
+  /* ── distance markers: one every 30 seconds of each song ──
+     Glowing stripes across the terrain, plus pylons carrying the time in
+     voxel digits, so fans always know how deep into a song they stand. */
+  const FONT = {
+    '0': '111101101101111', '1': '010110010010111', '2': '111001111100111',
+    '3': '111001111001111', '4': '101101111001001', '5': '111100111001111',
+    '6': '111100111101111', '7': '111001010010010', '8': '111101111101111',
+    '9': '111101111001111', ':': '000010000010000'
+  };
+  function setBlockIfAir(x, y, z, b) {
+    if (x < 0 || x >= SXZ || z < 0 || z >= SXZ || y < 1 || y >= SY) return;
+    if (W.blocks[bIdx(x, y, z)] === AIR) W.blocks[bIdx(x, y, z)] = b;
+  }
+  function placeDigits(label, cx, yBase, cz, dx, dz) {
+    const wTotal = label.length * 4 - 1;
+    const off = -Math.floor(wTotal / 2);
+    for (let ci = 0; ci < label.length; ci++) {
+      const glyph = FONT[label[ci]];
+      if (!glyph) continue;
+      for (let r = 0; r < 5; r++) for (let c = 0; c < 3; c++) {
+        if (glyph[r * 3 + c] !== '1') continue;
+        const o = off + ci * 4 + c;
+        setBlockIfAir(cx + o * dx, yBase + (4 - r), cz + o * dz, MARKER);
+      }
+    }
+  }
+  function fmtTime(t) {
+    const s = Math.max(0, Math.round(t));
+    return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  }
+  function placePylon(x, z) {
+    const h = W.heights[x * SXZ + z];
+    if (h <= SEA) return h;
+    for (let y = h + 1; y <= Math.min(SY - 2, h + 5); y++) setBlockIfAir(x, y, z, MARKER);
+    return h;
+  }
+  function buildTimeMarkers() {
+    W.markers = new Uint8Array(SXZ * SXZ);
+    if (!W.songs.length) return;
+    // stripe every 30s of song time, skipping the arenas (neutral ground)
+    for (let x = 0; x < SXZ; x++) for (let z = 0; z < SXZ; z++) {
+      if (AREA_CORNER[areaOf(x, z)] !== undefined) continue;
+      const sa = songAt(x, z);
+      if (!sa || sa.beyond || sa.t < 3) continue;
+      const tm = sa.t % 30;
+      if (Math.min(tm, 30 - tm) < sa.tPerBlock * 0.8) W.markers[x * SXZ + z] = 1;
+    }
+    // pylons + voxel-digit time labels
+    const n = W.songs.length;
+    if (W.cfg.layout === 'lanes') {
+      const laneW = SXZ / n, span = SXZ - 2 * LANE_M;
+      for (let i = 0; i < n; i++) {
+        const song = W.songs[i];
+        for (let k = 1; k * 30 < song.dur; k++) {
+          const zm = Math.round(LANE_M + (k * 30 / song.dur) * span);
+          if (zm < 20 || zm > SXZ - 20) continue;
+          // the walkable stretch of this lane at zm, dodging the corner arenas
+          let gx0 = Math.round(i * laneW), gx1 = Math.round((i + 1) * laneW);
+          if (zm < AREA || zm >= 2 * AREA) { gx0 = Math.max(gx0, AREA); gx1 = Math.min(gx1, 2 * AREA); }
+          if (gx1 - gx0 < 12) continue;
+          const cx = Math.floor((gx0 + gx1) / 2);
+          placePylon(gx0 + 2, zm);
+          placePylon(gx1 - 3, zm);
+          const yb = Math.max(W.heights[cx * SXZ + zm], SEA) + 4;
+          placeDigits(fmtTime(k * 30), cx, Math.min(yb, SY - 7), zm, 1, 0);
+        }
+      }
+    } else {
+      const band = RMAX / n, c0 = SXZ / 2;
+      for (let i = 0; i < n; i++) {
+        const song = W.songs[i];
+        for (let k = 1; k * 30 < song.dur; k++) {
+          const rm = (i + k * 30 / song.dur) * band;
+          if (rm < 10 || rm >= RMAX) continue;
+          // markers at the four compass points of the ring; digits face the walker
+          const pts = [
+            { x: c0, z: c0 - rm, dx: 1, dz: 0 }, { x: c0 + rm, z: c0, dx: 0, dz: 1 },
+            { x: c0, z: c0 + rm, dx: 1, dz: 0 }, { x: c0 - rm, z: c0, dx: 0, dz: 1 }
+          ];
+          for (const p of pts) {
+            const px = Math.round(p.x), pz = Math.round(p.z);
+            if (px < 8 || px >= SXZ - 8 || pz < 8 || pz >= SXZ - 8) continue;
+            if (AREA_CORNER[areaOf(px, pz)] !== undefined) continue;
+            const h = placePylon(px, pz);
+            if (h > SEA) placeDigits(fmtTime(k * 30), px, Math.min(h + 4, SY - 7), pz, p.dx, p.dz);
+          }
+        }
+      }
+    }
   }
 
   /* loot placement: server gives (x,z); the chest sits 2 under the surface */
@@ -503,6 +684,7 @@
       case ROCK: return [0.18, 0.19, 0.22];
       case SNOW: return pal.snow;
       case PILLAR: return mix3(pal.stone, pal.accent, 0.3);
+      case MARKER: return mix3(pal.accent, [1, 1, 1], 0.35);
       default: return [1, 0, 1];
     }
   }
@@ -514,7 +696,9 @@
     const verts = [], wverts = [];
     const x0 = ci * CS, z0 = cj * CS;
     for (let x = x0; x < x0 + CS; x++) for (let z = z0; z < z0 + CS; z++) {
-      const pal = W.palettes[areaOf(x, z)];
+      const pal = paletteAt(x, z);
+      const surfH = W.heights[x * SXZ + z];
+      const stripe = W.markers && W.markers[x * SXZ + z];
       for (let y = 0; y < SY; y++) {
         const b = W.blocks[bIdx(x, y, z)];
         if (b === AIR) continue;
@@ -524,7 +708,9 @@
           const nb = getB(x + F.n[0], y + F.n[1], z + F.n[2]);
           if (isWater) { if (nb !== AIR) continue; }
           else if (nb !== AIR && nb !== WATER) continue;
-          const glow = b === CHEST ? 1 : b === PILLAR ? 0.45 : 0;
+          let glow = b === CHEST ? 1 : b === MARKER ? 0.9 : b === PILLAR ? 0.45 : 0;
+          // 30-second time stripes glow on the walking surface
+          if (stripe && fi === 2 && y === surfH && !isWater) glow = Math.max(glow, 0.55);
           let base, varr = 1;
           if (isWater) base = pal.water;
           else { base = blockColor(b, fi, pal); varr = hashVar(x, y, z); }
@@ -721,19 +907,32 @@
       for (const el of [this.a, this.b]) { el.loop = true; el.preload = 'none'; el.setAttribute('playsinline', ''); el.volume = 0; }
     },
     setMuted(m) { if (this.cur) this.cur.muted = m; if (this.a) { this.a.muted = m; this.b.muted = m; } },
-    playArea(ai) {
+    /* the song whose terrain you stand on is the song you hear, starting
+       roughly where you stand in its timeline */
+    playSong(song, startT) {
       this.init();
-      const cfg = W.cfg;
-      const tid = cfg.areaTracks[ai];
-      const track = tid ? cfg.tracks.find((t) => t.id === tid) : null;
-      if (!track || !track.url) { this.setEnvelope(null, areaKeyOf(ai)); return; } // ambient silence, pseudo envelope
-      if (this.curTrackId === track.id) return;
-      this.curTrackId = track.id;
-      this.setEnvelope(track.envelope, areaKeyOf(ai));
+      this.beatIdx = 0;
+      if (song) { this.envArr = song.arr; this.envDur = song.dur; this.beats = song.beats; }
+      else {
+        const p = pseudoEnvelope('pseudoenv|silence');
+        this.envArr = p.env; this.envDur = p.dur; this.beats = p.beats;
+      }
+      const url = song && song.url ? (song.url.startsWith('/') ? W.cfg.origin + song.url : song.url) : null;
+      if (!url) {
+        this.curTrackId = song ? song.id : null;
+        if (this.cur) { try { this.cur.pause(); } catch (e) {} }
+        this.cur = null; this.fading = null;
+        return;
+      }
+      if (this.curTrackId === song.id) return;
+      this.curTrackId = song.id;
       const next = this.cur === this.a ? this.b : this.a;
-      const url = track.url.startsWith('/') ? cfg.origin + track.url : track.url;
       try {
         next.src = url; next.muted = Sfx.muted; next.volume = 0;
+        const seek = clamp(startT || 0, 0, Math.max(0, song.dur - 2));
+        next.addEventListener('loadedmetadata', () => {
+          try { if (next.duration && seek < next.duration - 1) next.currentTime = seek; } catch (e) {}
+        }, { once: true });
         const pr = next.play();
         if (pr && pr.catch) pr.catch(() => {});
       } catch (e) {}
@@ -744,21 +943,6 @@
       this.curTrackId = null;
       for (const el of [this.a, this.b]) { if (el) { try { el.pause(); } catch (e) {} } }
       this.cur = null; this.fading = null;
-    },
-    setEnvelope(envelope, seedKey) {
-      this.beatIdx = 0;
-      if (envelope && Array.isArray(envelope.env) && envelope.env.length) {
-        this.envArr = envelope.env; this.envDur = envelope.dur || 30;
-        this.beats = Array.isArray(envelope.beats) ? envelope.beats : [];
-      } else {
-        // deterministic pseudo-envelope so the world still breathes
-        const rand = seeded('pseudoenv|' + seedKey);
-        const n = 300; this.envArr = new Array(n); this.envDur = 30;
-        for (let i = 0; i < n; i++) this.envArr[i] = 0.3 + 0.3 * Math.sin(i / 18 + rand() * 6) + rand() * 0.1;
-        const bpm = 92 + Math.floor(rand() * 40);
-        this.beats = [];
-        for (let t = 0.5; t < 30; t += 60 / bpm) this.beats.push(t);
-      }
     },
     /* returns {level, beat} for ambience; clock is the audio element when playing */
     tick(dt, tNow) {
@@ -916,12 +1100,16 @@
     const hit = raycast(P.x, P.y + EYE, P.z, dir[0], dir[1], dir[2], 7);
     if (!hit || hit.y <= 0) return;
     if (hit.b === CHEST) { openLoot(hit); return; }
-    if (hit.b === ROCK || hit.b === PILLAR) { showToast(hit.b === PILLAR ? 'the pillar hums · it will not break' : 'too hard to dig', 1200); return; }
+    if (hit.b === ROCK || hit.b === PILLAR || hit.b === MARKER) {
+      showToast(hit.b === MARKER ? 'a time marker · every one is 30 seconds of the song' :
+        hit.b === PILLAR ? 'the pillar hums · it will not break' : 'too hard to dig', 1400);
+      return;
+    }
     W.blocks[bIdx(hit.x, hit.y, hit.z)] = AIR;
     markDirtyAt(hit.x, hit.z);
     Sfx.dig();
     vibrate(12);
-    const pal = W.palettes[areaOf(hit.x, hit.z)];
+    const pal = paletteAt(hit.x, hit.z);
     burst(hit.x + 0.5, hit.y, hit.z + 0.5, blockColor(hit.b === WATER ? STONE : hit.b, 2, pal), 10, 5);
   }
 
@@ -941,7 +1129,7 @@
     if (target === cur) { showToast('teleport reaches the areas next door', 1500); return; }
     const dc = Math.abs(target % 3 - cur % 3), dr = Math.abs(Math.floor(target / 3) - Math.floor(cur / 3));
     if (dc > 1 || dr > 1) { showToast('too far · teleport reaches the areas next door', 1600); return; }
-    const pal = W.palettes[cur];
+    const pal = palAtPlayer();
     burst(P.x, P.y + 1, P.z, pal.accent, 18, 6);
     P.x = tx; P.z = tz; P.y = surfaceY(tx, tz) + 1;
     P.vx = P.vy = P.vz = 0;
@@ -1201,7 +1389,7 @@
       const key = areaKeyOf(P.areaIdx);
       if (W.lootByArea[key]) W.lootByArea[key] = W.lootByArea[key].filter((l) => l.id !== entry.id);
       Sfx.loot();
-      const pal = W.palettes[P.areaIdx];
+      const pal = palAtPlayer();
       burst(hit.x + 0.5, hit.y + 1, hit.z + 0.5, pal.accent, 30, 8);
       const found = store.get('found', []);
       if (found.indexOf(entry.id) < 0) { found.push(entry.id); store.set('found', found.slice(-200)); }
@@ -1365,6 +1553,7 @@
     P.yaw = keepYaw; P.pitch = keepPitch; P.flying = keepFly;
     P.vx = P.vy = P.vz = 0;
     P.areaIdx = -1; // force area-change handling
+    S.songIdx = -999; // force the new world's song to start
     $('hudWorld').textContent = ncfg.name;
     showBanner(ncfg.name, ncfg.asleep ? 'this world is asleep · loot and friends return when it wakes' : 'you crossed into ' + (ncfg.artist || 'another artist') + '\'s land');
     if (ncfg.asleep) showToast('this world is asleep right now · the land is still yours to roam', 3200);
@@ -1391,17 +1580,27 @@
     b.classList.add('on');
     bannerTimer = 3.2;
   }
-  function areaLabel(ai) {
-    const tid = W.cfg.areaTracks[ai];
-    const track = tid ? W.cfg.tracks.find((t) => t.id === tid) : null;
-    return track ? AREA_NAMES[ai] + ' · ' + track.title : AREA_NAMES[ai];
+  function areaLabel(ai) { return AREA_NAMES[ai]; }
+
+  /* keeps the HUD, the playing song and the ambience in step with where the
+     fan is standing on the song timeline; runs a few times a second */
+  function updateWhere(force) {
+    const ai = areaOf(P.x, P.z);
+    const sa = songAt(P.x, P.z);
+    let txt = AREA_NAMES[ai];
+    if (sa && !sa.beyond) txt = sa.song.title + ' · ' + fmtTime(sa.t) + ' · ' + txt;
+    $('hudArea').textContent = txt;
+    const idx = sa ? sa.idx : -1;
+    if (idx !== S.songIdx || force) {
+      S.songIdx = idx;
+      Music.playSong(idx >= 0 ? W.songs[idx] : null, sa ? sa.t : 0);
+      if (idx >= 0 && W.songs[idx].url) showToast('now playing: ' + W.songs[idx].title, 2200);
+    }
   }
 
   function onAreaChange(ai) {
     P.areaIdx = ai;
-    $('hudArea').textContent = areaLabel(ai);
-    showBanner(AREA_NAMES[ai], W.cfg.areaTracks[ai] ? 'now playing: ' + areaLabel(ai).split(' · ')[1] : null);
-    Music.playArea(ai);
+    showBanner(AREA_NAMES[ai], null);
     Presence.join(ai);
     loadLootForArea(ai);
     const c = AREA_CORNER[ai];
@@ -1416,7 +1615,7 @@
   let curSky = [0.06, 0.1, 0.16], curFog = [0.3, 0.35, 0.42];
 
   function drawScene(t, dt) {
-    const pal = W.palettes[clamp(P.areaIdx, 0, 8)];
+    const pal = palAtPlayer();
     const amb = Music.tick(dt, t);
     S.envLevel += (amb.level - S.envLevel) * (1 - Math.exp(-dt * 3));
     if (amb.beat) {
@@ -1559,6 +1758,8 @@
       Presence.tick(dt);
       const ai = areaOf(P.x, P.z);
       if (ai !== P.areaIdx) onAreaChange(ai);
+      S.hudT = (S.hudT || 0) - dt;
+      if (S.hudT <= 0) { S.hudT = 0.4; updateWhere(false); }
       maybeCross();
       updateRadar(dt);
     }
@@ -1584,10 +1785,17 @@
       genWorld(W.cfg);
       clearChunks();
       spawnMonsters();
-      // spawn on the home stage
+      // spawn on the home stage, or at a #at=x,z spot from a shared link
       P.x = SXZ / 2 + 0.5; P.z = SXZ / 2 + 0.5;
+      P.yaw = Math.PI * 0.25;
+      const atM = location.hash.match(/at=(\d+),(\d+)/);
+      if (atM) {
+        P.x = clamp(Number(atM[1]), 2, SXZ - 3) + 0.5;
+        P.z = clamp(Number(atM[2]), 2, SXZ - 3) + 0.5;
+        P.yaw = 0;
+      }
       P.y = surfaceY(P.x, P.z) + 1;
-      P.yaw = Math.PI * 0.25; P.pitch = -0.12;
+      P.pitch = -0.12;
       P.flying = false; P.areaIdx = -1;
       $('btnFly').textContent = '🪽 walk'; $('btnFly').classList.remove('lit');
       $('btnJump').classList.remove('hide'); $('btnUp').classList.add('hide'); $('btnDown').classList.add('hide');
@@ -1598,10 +1806,12 @@
       ensureChunksAround(P.x, P.z);
       $('loadVeil').classList.remove('on');
       S.playing = true; S.live = true;
+      S.songIdx = -999;
       cancelAnimationFrame(S.raf);
       S.lastT = performance.now();
       S.raf = requestAnimationFrame(frame);
       onAreaChange(areaOf(P.x, P.z));
+      updateWhere(true);
       if (W.cfg.stale) showToast('this world is asleep · playing from the last copy your browser saw', 3600);
     }, 60);
   }

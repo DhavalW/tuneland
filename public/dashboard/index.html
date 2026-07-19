@@ -59,13 +59,24 @@
     th, td { text-align: left; padding: 0.45rem 0.5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
     th { font-size: 0.56rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--bone-45); }
     td button { color: var(--coral); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.1em; }
-    .grid9 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-top: 0.8rem; }
-    .area-cell { border: 1px solid var(--line); border-radius: 12px; padding: 0.6rem; background: rgba(10,20,32,0.4); }
-    .area-cell .an { font-size: 0.56rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--bone-45); margin-bottom: 0.4rem; }
-    .area-cell.center { border-color: var(--acid-dim); }
-    .area-cell select { font-size: 0.62rem; padding: 0.35rem 0.4rem; margin-top: 0.3rem; }
-    .area-cell input[type=range] { padding: 0; margin-top: 0.4rem; accent-color: var(--acid); }
-    .hue-dot { display: inline-block; width: 14px; height: 14px; border-radius: 4px; vertical-align: middle; margin-left: 0.3rem; }
+    .warn {
+      border: 1px solid rgba(255,81,46,0.55); border-radius: 12px; background: rgba(255,81,46,0.09);
+      padding: 0.8rem 0.95rem; font-size: 0.68rem; color: var(--bone-70); line-height: 1.7; margin: 0.4rem 0 0.6rem;
+    }
+    .warn b { color: var(--coral); display: block; margin-bottom: 0.25rem; }
+    .rights-row { display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.68rem; color: var(--bone-70); text-transform: none; letter-spacing: 0; margin: 0.4rem 0 0.2rem; line-height: 1.6; }
+    .rights-row input { width: auto; margin-top: 0.15rem; accent-color: var(--coral); }
+    .layout-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.6rem; margin-top: 0.3rem; }
+    .layout-opt { display: block; border: 1px solid var(--line); border-radius: 12px; padding: 0.8rem; background: rgba(10,20,32,0.4); cursor: pointer; text-transform: none; letter-spacing: 0; }
+    .layout-opt b { display: block; font-size: 0.72rem; color: var(--bone); margin: 0.2rem 0; }
+    .layout-opt span { font-size: 0.64rem; color: var(--bone-45); line-height: 1.6; display: block; }
+    .layout-opt input { width: auto; accent-color: var(--acid); }
+    .shape-row { display: flex; align-items: center; gap: 0.6rem; border: 1px solid var(--line); border-radius: 10px; padding: 0.5rem 0.7rem; margin-top: 0.4rem; background: rgba(10,20,32,0.4); }
+    .shape-row .sr-ord { font-size: 0.62rem; color: var(--bone-45); width: 1.4rem; }
+    .shape-row .sr-title { flex: 1; font-size: 0.72rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .shape-row input[type=range] { width: 90px; padding: 0; accent-color: var(--acid); }
+    .shape-row button { font-size: 0.8rem; color: var(--bone-70); padding: 0.2rem 0.4rem; }
+    .hue-dot { display: inline-block; width: 14px; height: 14px; border-radius: 4px; vertical-align: middle; }
     #lootMap { width: 100%; max-width: 480px; aspect-ratio: 1; border: 1px solid var(--line); border-radius: 12px; touch-action: manipulation; cursor: crosshair; display: block; margin-top: 0.7rem; background: #08111c; }
     .veil { position: fixed; inset: 0; z-index: 40; display: none; align-items: center; justify-content: center; text-align: center; background: rgba(3,8,14,0.92); padding: 2rem; }
     .veil.on { display: flex; }
@@ -115,7 +126,12 @@
 
       <div class="card">
         <h2>2 · Add your songs</h2>
-        <p class="hint">Upload an audio file (mp3, m4a, wav · up to 25 MB). It is stored on your own Cloudflare and played inside your world. While it uploads, your browser also listens to it once so the world can breathe with the song.</p>
+        <p class="hint">Upload an audio file (mp3, m4a, wav · up to 25 MB). It is stored on your own Cloudflare, played inside your world, and its loudness shapes your terrain: loud parts raise ridges, quiet parts sink into water valleys. While it uploads, your browser listens to it once to measure that shape.</p>
+        <div class="warn">
+          <b>Only upload music you have the rights to.</b>
+          You are hosting these files on your own Cloudflare account, in public. That means your own songs, or songs you have written permission to host and share. Covers, remixes with uncleared samples, and other people's tracks can get your Cloudflare and GitHub accounts suspended and can expose you to copyright claims. You are responsible for what your world serves.
+        </div>
+        <label class="rights-row"><input type="checkbox" id="cRights" /> I wrote this song or hold the rights to host and share this recording</label>
         <div class="row">
           <div><label>Song title</label><input id="tTitle" maxlength="120" placeholder="Song title" /></div>
           <div><label>Audio file</label><input id="tFile" type="file" accept="audio/*" /></div>
@@ -129,10 +145,18 @@
       </div>
 
       <div class="card">
-        <h2>3 · Tune your areas</h2>
-        <p class="hint">Your world is a 3 by 3 grid. The middle is your home stage. Corners are arenas where the glooms live, and where links to other worlds happen. Give each area a color and a song, then save.</p>
-        <div class="grid9" id="grid9"></div>
-        <button class="btn" id="btnSaveAreas">Save areas</button>
+        <h2>3 · Shape your world</h2>
+        <p class="hint">Your songs are the terrain. Pick how they lay out, order them, and give each one a color. Glowing time markers cross the land every 30 seconds of each song, so fans always know how deep into a track they are standing. The corner arenas stay neutral ground.</p>
+        <label>Layout</label>
+        <div class="layout-row">
+          <label class="layout-opt"><input type="radio" name="layout" value="rings" checked />
+            <b>Concentric rings</b><span>Your first song is the innermost land. Each next song is a ring around it. Walking outward from the center walks your discography.</span></label>
+          <label class="layout-opt"><input type="radio" name="layout" value="lanes" />
+            <b>Rectangular lanes</b><span>Each song gets its own lane, side by side, west to east. Walking south walks through the song.</span></label>
+        </div>
+        <label>Song order and colors</label>
+        <div id="shapeList"></div>
+        <button class="btn" id="btnSaveShape">Save shape</button>
         <p class="status" id="areaStatus"></p>
       </div>
 
@@ -283,11 +307,65 @@
       arenaFns[c] = { key, n2: makeNoise2D(seeded(key)) };
     }
   }
+  /* songs shape the land, same math as the game client */
+  const RMAX = 138, LANE_M = 14;
+  let songs = [];
+  function pseudoEnvelope(seedKey) {
+    const rand = seeded(seedKey);
+    const n = 300, env = new Array(n);
+    for (let i = 0; i < n; i++) env[i] = clamp(0.32 + 0.3 * Math.sin(i / 18 + rand() * 6) + rand() * 0.12, 0, 1);
+    return { dur: 30, env };
+  }
+  function buildSongs() {
+    songs = (world.tracks || []).map((t) => {
+      let envd = t.envelope;
+      if (!envd || !Array.isArray(envd.env) || !envd.env.length) envd = pseudoEnvelope('pseudoenv|' + t.id);
+      const hue = (t.hue !== null && t.hue !== undefined) ? t.hue : (xmur3('hue|' + t.id)() % 1000) / 1000;
+      return { id: t.id, title: t.title, hue, dur: clamp(Number(envd.dur) || 30, 10, 600), arr: envd.env };
+    });
+  }
+  function sampleEnv(song, t) {
+    const arr = song.arr;
+    const f = clamp(t / song.dur * arr.length, 0, arr.length - 1.001);
+    const i = f | 0;
+    return lerp(arr[i], arr[Math.min(arr.length - 1, i + 1)], f - i);
+  }
+  function curLayout() {
+    const el = document.querySelector('input[name=layout]:checked');
+    return el && el.value === 'lanes' ? 'lanes' : 'rings';
+  }
+  function songAtD(x, z) {
+    const n = songs.length;
+    if (!n) return null;
+    if (curLayout() === 'lanes') {
+      const idx = clamp(Math.floor(x / SXZ * n), 0, n - 1);
+      const song = songs[idx];
+      const span = SXZ - 2 * LANE_M;
+      return { song, idx, t: clamp((z - LANE_M) / span, 0, 1) * song.dur, tPerBlock: song.dur / span };
+    }
+    const r = Math.hypot(x - SXZ / 2, z - SXZ / 2);
+    const band = RMAX / n;
+    if (r >= RMAX) return { song: songs[n - 1], idx: n - 1, t: songs[n - 1].dur, tPerBlock: songs[n - 1].dur / band, beyond: true };
+    const idx = clamp(Math.floor(r / band), 0, n - 1);
+    const song = songs[idx];
+    return { song, idx, t: (r - idx * band) / band * song.dur, tPerBlock: song.dur / band };
+  }
   function ownHeight(x, z) {
-    const n = n2(x / 34, z / 34) + 0.5 * n2(x / 13, z / 13) + 0.25 * n2(x / 6, z / 6);
-    let h = 4 + (n / 1.75) * 22;
-    const dx = (x - SXZ / 2) / (SXZ / 2), dz = (z - SXZ / 2) / (SXZ / 2);
-    h += Math.max(0, 1 - Math.sqrt(dx * dx + dz * dz) * 2.2) * 5;
+    const sa = songAtD(x, z);
+    let h;
+    if (!sa) {
+      const n = n2(x / 34, z / 34) + 0.5 * n2(x / 13, z / 13) + 0.25 * n2(x / 6, z / 6);
+      h = 4 + (n / 1.75) * 22;
+      const dx = (x - SXZ / 2) / (SXZ / 2), dz = (z - SXZ / 2) / (SXZ / 2);
+      h += Math.max(0, 1 - Math.sqrt(dx * dx + dz * dz) * 2.2) * 5;
+    } else {
+      const level = sampleEnv(sa.song, sa.t);
+      h = 4.5 + level * 20 + n2(x / 7.5, z / 7.5) * (1.2 + level * 5.5) + n2(x / 23 + 9.1, z / 23) * 2.5 * level;
+      const calm = clamp(level / 0.22, 0, 1);
+      const s = calm * calm * (3 - 2 * calm);
+      h = lerp(1.5 + n2(x / 11, z / 11) * 1.6, h, s);
+      if (sa.beyond) h = Math.min(h, 3);
+    }
     const edge = Math.min(x, z, SXZ - 1 - x, SXZ - 1 - z);
     return lerp(1, h, clamp(edge / 18, 0, 1));
   }
@@ -313,18 +391,40 @@
     const s = t * t * (3 - 2 * t);
     return lerp(base, arenaHeight(fn, u, v), s);
   }
+  function hue2rgbSmall(h) {
+    const f = (nn) => {
+      const k = (nn + h * 12) % 12;
+      return 0.45 - 0.5 * Math.min(0.45, 1 - 0.45) * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    };
+    return [f(0) * 255, f(8) * 255, f(4) * 255];
+  }
   function drawMap() {
     if (!world || !world.worldId) return;
+    buildSongs();
     terrainFns();
     const cv = $('lootMap'), ctx = cv.getContext('2d');
     const img = ctx.createImageData(288, 288);
     for (let z = 0; z < 288; z++) for (let x = 0; x < 288; x++) {
       const h = heightAt(x, z);
       const o = (z * 288 + x) * 4;
+      const inArena = AREA_CORNER[(clamp(Math.floor(z / AREA), 0, 2)) * 3 + clamp(Math.floor(x / AREA), 0, 2)] !== undefined;
+      const sa = inArena ? null : songAtD(x, z);
       if (h <= SEA) { img.data[o] = 22; img.data[o + 1] = 60 + h * 3; img.data[o + 2] = 110 + h * 4; }
       else {
         const k = clamp((h - SEA) / 26, 0, 1);
-        img.data[o] = 40 + k * 150; img.data[o + 1] = 70 + k * 140; img.data[o + 2] = 40 + k * 120;
+        let r = 40 + k * 150, g = 70 + k * 140, b = 40 + k * 120;
+        if (sa) { // tint the land by its song's color
+          const t3 = hue2rgbSmall(sa.song.hue);
+          r = r * 0.45 + t3[0] * (0.35 + k * 0.3);
+          g = g * 0.45 + t3[1] * (0.35 + k * 0.3);
+          b = b * 0.45 + t3[2] * (0.35 + k * 0.3);
+        }
+        // 30-second time markers as bright lines
+        if (sa && !sa.beyond && sa.t > 3) {
+          const tm = sa.t % 30;
+          if (Math.min(tm, 30 - tm) < sa.tPerBlock * 0.8) { r = 220; g = 255; b = 140; }
+        }
+        img.data[o] = r; img.data[o + 1] = g; img.data[o + 2] = b;
       }
       img.data[o + 3] = 255;
     }
@@ -451,7 +551,9 @@
     $('fWorldName').value = world.name || '';
     $('fArtist').value = world.artist || '';
     $('fBio').value = world.bio || '';
-    buildGrid9();
+    const lr = document.querySelector('input[name=layout][value=' + (world.layout === 'lanes' ? 'lanes' : 'rings') + ']');
+    if (lr) lr.checked = true;
+    buildShapeList();
     drawMap();
     paintTracks(world.tracks || []);
     refreshLoot();
@@ -465,68 +567,85 @@
     setStatus('profileStatus', 'Saving…');
     api('/api/admin/profile', {
       method: 'PUT', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        worldName: $('fWorldName').value, artist: $('fArtist').value, bio: $('fBio').value,
-        hues: currentHues(), areaTracks: currentAreaTracks()
-      })
+      body: JSON.stringify({ worldName: $('fWorldName').value, artist: $('fArtist').value, bio: $('fBio').value })
     }).then((d) => {
       if (d.ok) { setStatus('profileStatus', 'Saved. Fans see it on their next visit.'); world.name = d.profile.worldName; world.artist = d.profile.artist; }
       else setStatus('profileStatus', d.error || 'Save failed.', true);
     }).catch(() => setStatus('profileStatus', 'Could not reach the world.', true));
   });
 
-  /* areas */
-  function buildGrid9() {
-    const g = $('grid9');
-    g.textContent = '';
-    for (let ai = 0; ai < 9; ai++) {
-      const cell = document.createElement('div');
-      cell.className = 'area-cell' + (ai === 4 ? ' center' : '');
-      const an = document.createElement('div');
-      an.className = 'an';
-      an.textContent = AREA_NAMES[ai];
-      cell.appendChild(an);
-      const hue = document.createElement('input');
-      hue.type = 'range'; hue.min = 0; hue.max = 100; hue.dataset.ai = ai;
-      hue.value = Math.round(((world.hues || [])[ai] || 0) * 100);
-      hue.className = 'hueSlider';
-      hue.addEventListener('input', () => { dot.style.background = 'hsl(' + (hue.value * 3.6) + ',60%,45%)'; });
+  /* world shape: layout, song order, song colors */
+  let shapeOrder = []; // [{id, title, hue}]
+  document.querySelectorAll('input[name=layout]').forEach((el) => el.addEventListener('change', drawMap));
+  function buildShapeList() {
+    shapeOrder = (world.tracks || []).map((t) => ({
+      id: t.id, title: t.title,
+      hue: (t.hue !== null && t.hue !== undefined) ? t.hue : (xmur3('hue|' + t.id)() % 1000) / 1000
+    }));
+    paintShapeList();
+  }
+  function paintShapeList() {
+    const box = $('shapeList');
+    box.textContent = '';
+    if (!shapeOrder.length) {
+      const p = document.createElement('p');
+      p.className = 'hint';
+      p.textContent = 'Upload songs above and they appear here. With no songs the world falls back to plain rolling hills.';
+      box.appendChild(p);
+      return;
+    }
+    shapeOrder.forEach((t, i) => {
+      const row = document.createElement('div');
+      row.className = 'shape-row';
+      const ord = document.createElement('span');
+      ord.className = 'sr-ord';
+      ord.textContent = String(i + 1);
       const dot = document.createElement('span');
       dot.className = 'hue-dot';
-      dot.style.background = 'hsl(' + (hue.value * 3.6) + ',60%,45%)';
-      an.appendChild(dot);
-      cell.appendChild(hue);
-      const sel = document.createElement('select');
-      sel.dataset.ai = ai; sel.className = 'trackSel';
-      cell.appendChild(sel);
-      g.appendChild(cell);
-    }
-    fillTrackSelectors();
-  }
-  function fillTrackSelectors() {
-    document.querySelectorAll('.trackSel').forEach((sel) => {
-      const ai = Number(sel.dataset.ai);
-      sel.textContent = '';
-      const none = document.createElement('option');
-      none.value = ''; none.textContent = 'no song';
-      sel.appendChild(none);
-      for (const t of world.tracks || []) {
-        const o = document.createElement('option');
-        o.value = t.id; o.textContent = t.title;
-        sel.appendChild(o);
-      }
-      sel.value = (world.areaTracks || [])[ai] || '';
+      dot.style.background = 'hsl(' + Math.round(t.hue * 360) + ',60%,45%)';
+      const title = document.createElement('span');
+      title.className = 'sr-title';
+      title.textContent = t.title + (i === 0 ? (curLayout() === 'lanes' ? ' (west lane)' : ' (innermost)') : '');
+      const hue = document.createElement('input');
+      hue.type = 'range'; hue.min = 0; hue.max = 100; hue.value = Math.round(t.hue * 100);
+      hue.addEventListener('input', () => {
+        t.hue = Number(hue.value) / 100;
+        dot.style.background = 'hsl(' + Math.round(t.hue * 360) + ',60%,45%)';
+      });
+      hue.addEventListener('change', drawShapePreview);
+      const up = document.createElement('button');
+      up.textContent = '↑'; up.title = 'Move earlier';
+      up.addEventListener('click', () => { if (i > 0) { shapeOrder.splice(i - 1, 0, shapeOrder.splice(i, 1)[0]); paintShapeList(); drawShapePreview(); } });
+      const dn = document.createElement('button');
+      dn.textContent = '↓'; dn.title = 'Move later';
+      dn.addEventListener('click', () => { if (i < shapeOrder.length - 1) { shapeOrder.splice(i + 1, 0, shapeOrder.splice(i, 1)[0]); paintShapeList(); drawShapePreview(); } });
+      row.appendChild(ord); row.appendChild(dot); row.appendChild(title); row.appendChild(hue); row.appendChild(up); row.appendChild(dn);
+      box.appendChild(row);
     });
   }
-  const currentHues = () => [...document.querySelectorAll('.hueSlider')].map((el) => Number(el.value) / 100);
-  const currentAreaTracks = () => [...document.querySelectorAll('.trackSel')].map((el) => el.value || null);
-  $('btnSaveAreas').addEventListener('click', () => {
+  function drawShapePreview() {
+    // apply pending order/hues to the local world copy so the map previews them
+    const byId = {};
+    for (const t of world.tracks || []) byId[t.id] = t;
+    world.tracks = shapeOrder.map((t) => Object.assign({}, byId[t.id], { hue: t.hue }));
+    drawMap();
+  }
+  $('btnSaveShape').addEventListener('click', () => {
     setStatus('areaStatus', 'Saving…');
-    api('/api/admin/profile', {
+    drawShapePreview();
+    api('/api/admin/tracks/reorder', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ids: shapeOrder.map((t) => t.id) })
+    }).then(() => Promise.all(shapeOrder.map((t) =>
+      api('/api/admin/tracks/' + t.id, {
+        method: 'PUT', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ hue: t.hue })
+      })
+    ))).then(() => api('/api/admin/profile', {
       method: 'PUT', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ hues: currentHues(), areaTracks: currentAreaTracks() })
-    }).then((d) => {
-      if (d.ok) { setStatus('areaStatus', 'Saved.'); world.hues = d.profile.hues; world.areaTracks = d.profile.areaTracks; }
+      body: JSON.stringify({ layout: curLayout() })
+    })).then((d) => {
+      if (d.ok) { world.layout = d.profile.layout; setStatus('areaStatus', 'Saved. Fans get the new land on their next visit.'); }
       else setStatus('areaStatus', d.error || 'Save failed.', true);
     }).catch(() => setStatus('areaStatus', 'Could not reach the world.', true));
   });
@@ -553,12 +672,13 @@
   }
   function refreshTracks() {
     fetch('/api/world').then((r) => r.json()).then((d) => {
-      if (d && d.ok) { world.tracks = d.tracks; world.areaTracks = d.areaTracks; paintTracks(d.tracks); fillTrackSelectors(); }
+      if (d && d.ok) { world.tracks = d.tracks; paintTracks(d.tracks); buildShapeList(); drawMap(); }
     });
   }
   $('btnUpload').addEventListener('click', () => {
     const file = $('tFile').files[0];
     const title = $('tTitle').value.trim() || (file ? file.name.replace(/\.[^.]+$/, '') : '');
+    if (!$('cRights').checked) { setStatus('trackStatus', 'Tick the rights box first. Only upload music you have the rights to host.', true); return; }
     if (!file) { setStatus('trackStatus', 'Pick an audio file first.', true); return; }
     if (file.size > 25 * 1024 * 1024) { setStatus('trackStatus', 'That file is over 25 MB. Export a smaller one.', true); return; }
     setStatus('trackStatus', 'Uploading…');
@@ -576,8 +696,8 @@
             });
           }
         }).then(() => {
-          setStatus('trackStatus', 'Done. "' + title + '" is in your world. Assign it to an area below.');
-          $('tTitle').value = ''; $('tFile').value = '';
+          setStatus('trackStatus', 'Done. "' + title + '" is now part of your terrain. Shape it below.');
+          $('tTitle').value = ''; $('tFile').value = ''; $('cRights').checked = false;
           refreshTracks();
         });
       })

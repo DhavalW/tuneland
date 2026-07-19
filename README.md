@@ -32,8 +32,17 @@ Full walkthrough with pictures: https://midhrami.com/tuneland/
 
 ## What your fans get
 
-- A 3 by 3 grid of land: your home stage in the middle, fields around it,
-  arenas in the corners. Every area can play a different song of yours.
+- Land built from your actual songs. Loud passages rise into ridges, quiet
+  passages sink into water valleys. You choose the shape: **concentric
+  rings** (your first song is the innermost land, each next song a ring
+  around it) or **rectangular lanes** (each song gets its own lane, side by
+  side). Whichever song's ground a fan stands on is the song they hear,
+  from about that point in the track.
+- Glowing time markers cross the land every 30 seconds of each song, with
+  the time spelled out in floating voxel digits, so fans always know how
+  deep into a track they are standing.
+- Arenas in the four corners: neutral ground with monsters, loot, and the
+  links to other artists' worlds.
 - Walking, flying (press F or the wing button), digging, and teleporting to
   the next area with alt+click (long-press on phones).
 - A radar that wakes up near buried loot and pings faster as they close in.
@@ -42,6 +51,16 @@ Full walkthrough with pictures: https://midhrami.com/tuneland/
   the same area.
 - Crossing: if you link a corner with another artist, fans walk from your
   world into theirs with no loading screen.
+
+## Your music, your rights
+
+Only upload music you have the rights to. Your world hosts its songs on
+your own Cloudflare account, in public. That means your own recordings, or
+recordings you have written permission to host and share. Covers, remixes
+with uncleared samples, and other people's tracks can get your Cloudflare
+and GitHub accounts suspended and can expose you to copyright claims. The
+dashboard asks you to confirm this for every upload, and you are
+responsible for what your world serves.
 
 ## Updates
 
