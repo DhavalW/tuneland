@@ -139,10 +139,12 @@ landing page repeat it.
   as Shardfall's dig targeting.
 - **Loot.** Artists bury loot boxes anywhere in their 9 areas and in shared
   corners. A loot box holds a title, a message, a link (new release, video)
-  and/or a coupon code, plus an optional claim limit. Positions come from
-  the owning Worker; contents are only revealed on a claim call, which
-  atomically decrements the remaining count. Once the limit is hit the box
-  disappears for everyone. Fans dig (local, non-persistent edits) to
+  and/or a coupon code. Scarcity is by count (a claim limit), by time (an
+  appears-at and/or disappears-at window), or both combined ("first 50
+  fans during release weekend"). Positions come from the owning Worker;
+  contents are only revealed on a claim call, which atomically re-checks
+  every scarcity rule and decrements the count. When the limit is hit or
+  the window closes, the box disappears for everyone. Fans dig (local, non-persistent edits) to
   uncover the chest, then open it.
 - **Radar.** A Shardfall-style radar: hidden until a live loot box is within
   ~28 blocks, then a circular sweep pops up with a bearing blip and
@@ -181,7 +183,13 @@ Three principals, no accounts anywhere:
 
 - **Artist**: claim-token. First `POST /api/admin/claim` on a fresh world
   mints a random token; D1 stores its SHA-256; the browser keeps the token.
-  All `/api/admin/*` calls take it as a Bearer token.
+  All `/api/admin/*` calls take it as a Bearer token. Claiming requires
+  accepting the artist agreement (midhrami.com/tuneland/agreement): the
+  artist bears responsibility for the world's content and usage and
+  indemnifies Midhrami. Acceptance is recorded (timestamp + version) in the
+  world's D1 and again in the registry at registration, which refuses
+  worlds that have not accepted. Pre-agreement worlds accept it from a
+  dashboard banner before they can continue.
 - **Superuser (Dhaval)**: an Ed25519 keypair generated in the
   `/tuneland/admin/` console (private key stays in that browser; export for
   backup). The public key is stored once in the registry via a

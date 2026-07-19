@@ -34,6 +34,8 @@ const SCHEMA = [
      code TEXT,
      max_claims INTEGER DEFAULT 0,
      claims INTEGER DEFAULT 0,
+     starts_at INTEGER,
+     ends_at INTEGER,
      active INTEGER DEFAULT 1,
      buried_by TEXT,
      created_at INTEGER
@@ -50,7 +52,9 @@ const SCHEMA = [
 // columns added after v1 shipped; harmless no-ops on fresh databases
 const ALTERS = [
   `ALTER TABLE tracks ADD COLUMN ord INTEGER`,
-  `ALTER TABLE tracks ADD COLUMN hue REAL`
+  `ALTER TABLE tracks ADD COLUMN hue REAL`,
+  `ALTER TABLE loot ADD COLUMN starts_at INTEGER`,
+  `ALTER TABLE loot ADD COLUMN ends_at INTEGER`
 ];
 
 let schemaReady = false;
@@ -66,6 +70,9 @@ async function ensureSchema(env) {
 /* ── small helpers ── */
 
 const enc = new TextEncoder();
+
+// bump when the artist agreement at midhrami.com/tuneland/agreement/ changes
+const TERMS_VERSION = 1;
 
 function json(data, status, extra) {
   return new Response(JSON.stringify(data), {
@@ -279,10 +286,15 @@ async function handleApi(request, env, ctx) {
   if (path === '/api/loot' && method === 'GET') {
     const area = url.searchParams.get('area') || '';
     if (!area || area.length > 200) return err('bad area');
+    // scarcity: a box is live only inside its time window (if set) and
+    // while claims remain (if capped); either alone or both together
     const rows = await env.DB.prepare(
       `SELECT id, x, z FROM loot
-       WHERE area_key = ? AND active = 1 AND (max_claims = 0 OR claims < max_claims)`
-    ).bind(area).all();
+       WHERE area_key = ?1 AND active = 1
+         AND (max_claims = 0 OR claims < max_claims)
+         AND (starts_at IS NULL OR starts_at <= ?2)
+         AND (ends_at IS NULL OR ends_at > ?2)`
+    ).bind(area, Date.now()).all();
     return json({ ok: true, loot: rows.results || [] });
   }
 
@@ -293,21 +305,26 @@ async function handleApi(request, env, ctx) {
         !body.lootId || !body.fanId || body.fanId.length > 64) return err('bad claim');
     const loot = await env.DB.prepare('SELECT * FROM loot WHERE id = ?').bind(body.lootId).first();
     if (!loot || !loot.active) return err('gone', 404);
+    const now = Date.now();
+    if (loot.starts_at && loot.starts_at > now) return err('gone', 404);
+    if (loot.ends_at && loot.ends_at <= now) return err('gone', 404);
     const already = await env.DB.prepare(
       'SELECT 1 AS one FROM claims WHERE loot_id = ? AND fan_id = ?'
     ).bind(loot.id, body.fanId).first();
     if (!already) {
       if (loot.max_claims > 0 && loot.claims >= loot.max_claims) return err('gone', 404);
-      // count the claim atomically; the WHERE re-checks the limit so two
-      // simultaneous last-claims cannot both pass
+      // count the claim atomically; the WHERE re-checks every scarcity rule
+      // so two simultaneous last-claims cannot both pass
       const res = await env.DB.prepare(
         `UPDATE loot SET claims = claims + 1
-         WHERE id = ? AND active = 1 AND (max_claims = 0 OR claims < max_claims)`
-      ).bind(loot.id).run();
+         WHERE id = ?1 AND active = 1 AND (max_claims = 0 OR claims < max_claims)
+           AND (starts_at IS NULL OR starts_at <= ?2)
+           AND (ends_at IS NULL OR ends_at > ?2)`
+      ).bind(loot.id, now).run();
       if (!res.meta || !res.meta.changes) return err('gone', 404);
       await env.DB.prepare(
         'INSERT OR IGNORE INTO claims (loot_id, fan_id, claimed_at) VALUES (?, ?, ?)'
-      ).bind(loot.id, body.fanId, Date.now()).run();
+      ).bind(loot.id, body.fanId, now).run();
     }
     return json({
       ok: true,
@@ -318,6 +335,7 @@ async function handleApi(request, env, ctx) {
         url: loot.url,
         code: loot.code,
         remaining: loot.max_claims > 0 ? Math.max(0, loot.max_claims - loot.claims - (already ? 0 : 1)) : null,
+        endsAt: loot.ends_at || null,
         repeat: !!already
       }
     });
@@ -369,8 +387,14 @@ async function handleApi(request, env, ctx) {
   if (path === '/api/admin/claim' && method === 'POST') {
     const existing = await metaGet(env, 'admin_token_hash');
     if (existing) return err('already claimed', 409);
+    // claiming is signing up: the artist must accept the artist agreement
+    // (responsibility for content and usage, indemnifying Midhrami)
+    let body = null;
+    try { body = await request.json(); } catch (e) {}
+    if (!body || body.agree !== true) return err('the artist agreement was not accepted', 428);
     const token = randHex(32);
     await metaSet(env, 'admin_token_hash', await sha256Hex(token));
+    await metaSet(env, 'terms_accepted', JSON.stringify({ at: Date.now(), version: TERMS_VERSION }));
     let worldId = await metaGet(env, 'world_id');
     if (!worldId) {
       worldId = 'w' + randHex(8);
@@ -389,7 +413,18 @@ async function handleApi(request, env, ctx) {
 }
 
 async function handleAdmin(request, env, ctx, path, method, who, bodyBytes, url) {
-  if (path === '/api/admin/whoami') return json({ ok: true, who });
+  if (path === '/api/admin/whoami') {
+    const terms = await metaGetJson(env, 'terms_accepted', null);
+    return json({ ok: true, who, termsAccepted: !!(terms && terms.at) });
+  }
+
+  // upgrade path: worlds claimed before the agreement existed accept it here
+  if (path === '/api/admin/accept-terms' && method === 'POST') {
+    const b = parseJsonBody(bodyBytes);
+    if (!b || b.agree !== true) return err('the artist agreement was not accepted', 428);
+    await metaSet(env, 'terms_accepted', JSON.stringify({ at: Date.now(), version: TERMS_VERSION }));
+    return json({ ok: true });
+  }
 
   if (path === '/api/admin/profile') {
     if (method === 'GET') {
@@ -515,15 +550,23 @@ async function handleAdmin(request, env, ctx, path, method, who, bodyBytes, url)
     if (!str(b.url, '', 500) && !str(b.code, '', 120) && !str(b.message, '', 500)) {
       return err('loot needs a link, a code or a message');
     }
+    // optional time window (ms epoch); works alone or combined with a claim cap
+    const toTs = (v) => {
+      const n = Number(v);
+      return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+    };
+    const startsAt = toTs(b.startsAt), endsAt = toTs(b.endsAt);
+    if (startsAt && endsAt && endsAt <= startsAt) return err('the loot would disappear before it appears');
     const id = 'l' + randHex(6);
     await env.DB.prepare(
-      `INSERT INTO loot (id, area_key, x, z, title, message, url, code, max_claims, buried_by, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO loot (id, area_key, x, z, title, message, url, code, max_claims, starts_at, ends_at, buried_by, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
       id, b.areaKey, Math.round(Number(b.x)), Math.round(Number(b.z)),
       str(b.title, 'Buried loot', 120), str(b.message, '', 500),
       str(b.url, '', 500), str(b.code, '', 120),
       Math.max(0, Math.min(1e6, Math.round(Number(b.maxClaims) || 0))),
+      startsAt, endsAt,
       who, Date.now()
     ).run();
     return json({ ok: true, id });
@@ -539,12 +582,15 @@ async function handleAdmin(request, env, ctx, path, method, who, bodyBytes, url)
   if (path === '/api/admin/register' && method === 'POST') {
     const worldId = await metaGet(env, 'world_id');
     if (!worldId) return err('claim the world first');
+    const terms = await metaGetJson(env, 'terms_accepted', null);
+    if (!terms || !terms.at) return err('the artist agreement was not accepted', 428);
     const profile = await metaGetJson(env, 'profile', DEFAULT_PROFILE);
     const secret = await metaGet(env, 'world_secret');
     const origin = new URL(request.url).origin;
     const { status, data } = await registryPost(env, '/register', {
       worldId, origin, secret: secret || undefined,
-      name: profile.worldName, artist: profile.artist
+      name: profile.worldName, artist: profile.artist,
+      termsAt: terms.at, termsVersion: terms.version || 1
     });
     if (status === 200 && data && data.ok) {
       if (data.secret) await metaSet(env, 'world_secret', data.secret);

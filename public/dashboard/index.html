@@ -100,8 +100,27 @@
     <div class="card" id="claimCard" style="display:none">
       <h2>Claim this world</h2>
       <p class="hint">You are the first person here, which makes this world yours. Claiming stores a key in this browser. Do it now, on your own device.</p>
+      <div class="warn">
+        <b>The artist agreement, in short.</b>
+        Your world runs on your accounts and everything it hosts and does is your responsibility: the music, the loot, the links, and how it all gets used, correct or not, legal or not. You indemnify Midhrami Studios and hold it harmless against any claims arising from your world. The software comes as is, and Midhrami can delist worlds from the public map. Read the full agreement at
+        <a href="https://midhrami.com/tuneland/agreement/" target="_blank" rel="noopener">midhrami.com/tuneland/agreement</a>.
+      </div>
+      <label class="rights-row"><input type="checkbox" id="cAgree" /> I have read and accept the Tuneland artist agreement. My world and its usage are my responsibility, and Midhrami is indemnified and not responsible for them.</label>
       <button class="btn" id="btnClaim">Claim this world</button>
       <p class="status" id="claimStatus"></p>
+    </div>
+
+    <div class="card" id="termsCard" style="display:none">
+      <h2>One thing before you continue</h2>
+      <p class="hint">This world was claimed before the artist agreement existed. Accept it to keep using the dashboard and stay on the Tuneland map.</p>
+      <div class="warn">
+        <b>The artist agreement, in short.</b>
+        Your world runs on your accounts and everything it hosts and does is your responsibility: the music, the loot, the links, and how it all gets used, correct or not, legal or not. You indemnify Midhrami Studios and hold it harmless against any claims arising from your world. Full text:
+        <a href="https://midhrami.com/tuneland/agreement/" target="_blank" rel="noopener">midhrami.com/tuneland/agreement</a>.
+      </div>
+      <label class="rights-row"><input type="checkbox" id="cAgreeLate" /> I have read and accept the Tuneland artist agreement</label>
+      <button class="btn" id="btnAcceptTerms">Accept and continue</button>
+      <p class="status" id="termsStatus"></p>
     </div>
 
     <div class="card" id="lockedCard" style="display:none">
@@ -171,6 +190,11 @@
           <div><label>Title</label><input id="lTitle" maxlength="120" placeholder="Early listen" /></div>
           <div><label>How many fans can find it (0 = no limit)</label><input id="lMax" type="number" min="0" max="1000000" value="0" /></div>
         </div>
+        <div class="row">
+          <div><label>Appears at (optional)</label><input id="lStart" type="datetime-local" /></div>
+          <div><label>Disappears at (optional)</label><input id="lEnd" type="datetime-local" /></div>
+        </div>
+        <p class="hint" style="margin-top:0.4rem">Scarcity works by count, by time, or both: "first 50 fans", "release weekend only", or "first 50 fans during release weekend".</p>
         <label>Message (optional)</label>
         <input id="lMsg" maxlength="500" placeholder="You found it. Here is something before everyone else." />
         <div class="row">
@@ -529,13 +553,26 @@
       // verify the token still works
       api('/api/admin/whoami').then((w) => {
         if (w.unauthorized) { $('lockedCard').style.display = ''; return; }
+        if (w.termsAccepted === false) { $('termsCard').style.display = ''; return; }
         showAdmin();
       });
     }).catch(() => { $('downVeil').classList.add('on'); });
   }
+  $('btnAcceptTerms').addEventListener('click', () => {
+    if (!$('cAgreeLate').checked) { setStatus('termsStatus', 'Tick the box after reading the agreement.', true); return; }
+    api('/api/admin/accept-terms', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ agree: true })
+    }).then((d) => {
+      if (d.ok) { $('termsCard').style.display = 'none'; showAdmin(); }
+      else setStatus('termsStatus', d.error || 'That did not save. Try again.', true);
+    }).catch(() => setStatus('termsStatus', 'Could not reach the world.', true));
+  });
   $('btnClaim').addEventListener('click', () => {
+    if (!$('cAgree').checked) { setStatus('claimStatus', 'Tick the box after reading the agreement. Claiming means accepting it.', true); return; }
     setStatus('claimStatus', 'Claiming…');
-    fetch('/api/admin/claim', { method: 'POST' }).then((r) => r.json()).then((d) => {
+    fetch('/api/admin/claim', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ agree: true })
+    }).then((r) => r.json()).then((d) => {
       if (d && d.ok && d.token) {
         token = d.token;
         try { localStorage.setItem(TOKEN_KEY, token); } catch (e) {}
@@ -724,10 +761,14 @@
       const tb = $('lootTable').querySelector('tbody');
       tb.textContent = '';
       $('lootTable').style.display = adminLoot.length ? '' : 'none';
+      const now = Date.now();
       for (const l of adminLoot) {
         const tr = document.createElement('tr');
         const td1 = document.createElement('td');
-        td1.textContent = l.title + (l.code ? ' · code' : '') + (l.url ? ' · link' : '');
+        let what = l.title + (l.code ? ' · code' : '') + (l.url ? ' · link' : '');
+        if (l.starts_at && l.starts_at > now) what += ' · appears ' + new Date(l.starts_at).toLocaleString();
+        else if (l.ends_at) what += (l.ends_at > now ? ' · until ' : ' · expired ') + new Date(l.ends_at).toLocaleString();
+        td1.textContent = what;
         const td2 = document.createElement('td'); td2.textContent = l.area_key.startsWith('own:') ? AREA_NAMES[Number(l.area_key.slice(4))] : 'shared arena';
         const td3 = document.createElement('td'); td3.textContent = l.claims + (l.max_claims ? ' / ' + l.max_claims : '');
         const td4 = document.createElement('td');
@@ -741,8 +782,15 @@
       drawMap();
     });
   }
+  function localToTs(v) {
+    if (!v) return null;
+    const t = new Date(v).getTime();
+    return Number.isFinite(t) ? t : null;
+  }
   $('btnBury').addEventListener('click', () => {
     if (!lootSpot) { setStatus('buryStatus', 'Tap the map to pick a spot first.', true); return; }
+    const startsAt = localToTs($('lStart').value), endsAt = localToTs($('lEnd').value);
+    if (startsAt && endsAt && endsAt <= startsAt) { setStatus('buryStatus', 'It would disappear before it appears. Check the times.', true); return; }
     setStatus('buryStatus', 'Burying…');
     api('/api/admin/loot', {
       method: 'POST', headers: { 'content-type': 'application/json' },
@@ -750,12 +798,14 @@
         areaKey: $('lootArea').value, x: lootSpot.x, z: lootSpot.z,
         title: $('lTitle').value, message: $('lMsg').value,
         url: $('lUrl').value, code: $('lCode').value,
-        maxClaims: Number($('lMax').value) || 0
+        maxClaims: Number($('lMax').value) || 0,
+        startsAt, endsAt
       })
     }).then((d) => {
       if (d.ok) {
         setStatus('buryStatus', 'Buried. Fans with a radar will find it.');
         $('lTitle').value = ''; $('lMsg').value = ''; $('lUrl').value = ''; $('lCode').value = '';
+        $('lStart').value = ''; $('lEnd').value = '';
         lootSpot = null;
         refreshLoot();
       } else setStatus('buryStatus', d.error || 'Burying failed.', true);

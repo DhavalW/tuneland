@@ -22,7 +22,10 @@ GitHub account. Nobody else holds your music or your data.
 2. **Claim your world.** When the deploy finishes you get a link like
    `https://tuneland-world.YOURNAME.workers.dev`. Open it, tap **Artist
    dashboard**, then **Claim this world**. Do this right away, from your own
-   phone or computer: the first person to claim a world owns it.
+   phone or computer: the first person to claim a world owns it. Claiming
+   means accepting the [artist agreement](https://midhrami.com/tuneland/agreement/):
+   your world and everything it hosts and does are your responsibility, and
+   Midhrami is indemnified and not responsible for it.
 
 3. **Make it yours.** In the dashboard: name your world, upload songs, color
    your areas, bury loot, then press **Join the Tuneland map** so fans and
@@ -45,7 +48,9 @@ Full walkthrough with pictures: https://midhrami.com/tuneland/
   links to other artists' worlds.
 - Walking, flying (press F or the wing button), digging, and teleporting to
   the next area with alt+click (long-press on phones).
-- A radar that wakes up near buried loot and pings faster as they close in.
+- A radar that wakes up near buried loot and pings faster as they close
+  in. Loot can be scarce by count ("first 50 fans"), by time ("release
+  weekend only"), or both at once.
 - Little monsters (glooms) in the arenas to dodge.
 - Friends: fans swap friend codes and get a heads-up when a friend is in
   the same area.
@@ -61,6 +66,11 @@ with uncleared samples, and other people's tracks can get your Cloudflare
 and GitHub accounts suspended and can expose you to copyright claims. The
 dashboard asks you to confirm this for every upload, and you are
 responsible for what your world serves.
+
+Claiming a world means accepting the
+[Tuneland artist agreement](https://midhrami.com/tuneland/agreement/): you
+bear responsibility for your world's content and usage, correct or not,
+and Midhrami Studios is indemnified and not responsible for it.
 
 ## Updates
 

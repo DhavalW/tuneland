@@ -532,7 +532,7 @@
       for (const item of W.lootByArea[areaKey]) {
         const x = clamp(Math.round(item.x), 1, SXZ - 2), z = clamp(Math.round(item.z), 1, SXZ - 2);
         const h = W.heights[x * SXZ + z];
-        const y = Math.max(2, h - 2);
+        const y = clamp(h - 2, 1, h); // never above the ground it hides in
         if (getB(x, y, z) === CHEST) continue;
         W.blocks[bIdx(x, y, z)] = CHEST;
         W.lootBlocks.set(x + ',' + z + ',' + y, item);
@@ -1379,15 +1379,22 @@
     const entry = W.lootBlocks.get(hit.x + ',' + hit.z + ',' + hit.y);
     if (!entry) return;
     lootBusy = true;
-    const done = (payload, failed) => {
-      lootBusy = false;
-      if (failed) { showToast(payload || 'that world is asleep · try again soon', 2600); return; }
-      // remove the chest locally
+    const removeChest = () => {
       W.blocks[bIdx(hit.x, hit.y, hit.z)] = AIR;
       markDirtyAt(hit.x, hit.z);
       W.lootBlocks.delete(hit.x + ',' + hit.z + ',' + hit.y);
       const key = areaKeyOf(P.areaIdx);
       if (W.lootByArea[key]) W.lootByArea[key] = W.lootByArea[key].filter((l) => l.id !== entry.id);
+    };
+    const done = (payload, failed, expired) => {
+      lootBusy = false;
+      if (failed) {
+        // an expired or exhausted box vanishes for this fan too
+        if (expired) removeChest();
+        showToast(payload || 'that world is asleep · try again soon', 2600);
+        return;
+      }
+      removeChest();
       Sfx.loot();
       const pal = palAtPlayer();
       burst(hit.x + 0.5, hit.y + 1, hit.z + 0.5, pal.accent, 30, 8);
@@ -1399,23 +1406,36 @@
       if (payload.code) { codeEl.style.display = ''; codeEl.textContent = payload.code; } else codeEl.style.display = 'none';
       const openEl = $('lootOpen');
       if (payload.url && /^https?:\/\//i.test(payload.url)) { openEl.style.display = ''; openEl.href = payload.url; } else openEl.style.display = 'none';
-      $('lootRemaining').textContent =
-        payload.remaining === null || payload.remaining === undefined ? '' :
-        payload.remaining === 0 ? 'you got the last one' : payload.remaining + ' left for other fans';
+      const bits = [];
+      if (payload.remaining !== null && payload.remaining !== undefined) {
+        bits.push(payload.remaining === 0 ? 'you got the last one' : payload.remaining + ' left for other fans');
+      }
+      if (payload.endsAt && payload.endsAt > Date.now()) {
+        const mins = Math.round((payload.endsAt - Date.now()) / 60000);
+        bits.push(mins > 120 ? 'gone in ' + Math.round(mins / 60) + ' hours' : 'gone in ' + Math.max(1, mins) + ' minutes');
+      }
+      $('lootRemaining').textContent = bits.join(' · ');
       $('lootModal').classList.add('on');
     };
     if (entry.demo) {
       done({ title: 'Practice chest', message: 'This is what fans find in a real world: a note from the artist, a link, sometimes a code.', code: null, url: null, remaining: null });
       return;
     }
-    fetchJson(entry.origin + '/api/loot/claim', {
+    // status-aware: a 404 means the box is gone (out of claims or out of
+    // time), which is different from the world being unreachable
+    const ctrl = window.AbortController ? new AbortController() : null;
+    const tm = setTimeout(() => { if (ctrl) ctrl.abort(); }, 8000);
+    fetch(entry.origin + '/api/loot/claim', Object.assign({
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ lootId: entry.id, fanId: fan.id })
-    }, 8000).then((d) => {
-      if (d && d.ok && d.loot) done(d.loot);
-      else done('this chest is already empty', true);
-    }).catch(() => done(null, true));
+    }, ctrl ? { signal: ctrl.signal } : {})).then((r) => {
+      clearTimeout(tm);
+      return r.json().catch(() => null).then((d) => {
+        if (d && d.ok && d.loot) done(d.loot);
+        else done('this chest is empty now · someone got here first, or its time ran out', true, true);
+      });
+    }).catch(() => { clearTimeout(tm); done(null, true, false); });
   }
   $('lootClose').addEventListener('click', () => $('lootModal').classList.remove('on'));
 
