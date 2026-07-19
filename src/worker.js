@@ -345,7 +345,11 @@ async function handleApi(request, env, ctx) {
     const id = decodeURIComponent(path.slice('/api/songs/'.length));
     const track = await env.DB.prepare('SELECT r2_key, source_url FROM tracks WHERE id = ?').bind(id).first();
     if (!track) return err('not found', 404);
-    if (!track.r2_key) return Response.redirect(track.source_url, 302);
+    if (!track.r2_key) {
+      // silent terrain sources (picture/words/drawing) have no audio at all
+      if (!track.source_url) return err('not found', 404);
+      return Response.redirect(track.source_url, 302);
+    }
     const range = request.headers.get('range');
     let obj;
     if (range) {
@@ -473,7 +477,25 @@ async function handleAdmin(request, env, ctx, path, method, who, bodyBytes, url)
     const hue = (parseInt(id.slice(1, 7), 16) % 1000) / 1000;
     if (contentType.startsWith('application/json')) {
       const b = parseJsonBody(bodyBytes);
-      if (!b || !str(b.sourceUrl, '', 500)) return err('bad body');
+      if (!b) return err('bad body');
+      // silent terrain source: creators who are not musicians send a shape
+      // made in their browser (from a picture, words, or a drawn skyline);
+      // nothing but the numbers is stored, and there is no audio to play
+      if (b.envelope && Array.isArray(b.envelope.env)) {
+        const e = b.envelope;
+        if (e.env.length < 4 || e.env.length > 600) return err('bad shape');
+        const envelope = {
+          dur: Math.min(600, Math.max(10, Number(e.dur) || 60)),
+          env: e.env.slice(0, 600).map((v) => clamp01(Number(v) || 0)),
+          beats: Array.isArray(e.beats) ? e.beats.slice(0, 400).map((t) => Math.max(0, Number(t) || 0)) : []
+        };
+        const h2 = Number.isFinite(Number(b.hue)) ? clamp01(Number(b.hue)) : hue;
+        await env.DB.prepare(
+          'INSERT INTO tracks (id, title, envelope, ord, hue, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+        ).bind(id, str(b.title, 'Untitled', 120), JSON.stringify(envelope), Date.now(), h2, Date.now()).run();
+        return json({ ok: true, id });
+      }
+      if (!str(b.sourceUrl, '', 500)) return err('bad body');
       await env.DB.prepare(
         'INSERT INTO tracks (id, title, source_url, ord, hue, created_at) VALUES (?, ?, ?, ?, ?, ?)'
       ).bind(id, str(b.title, 'Untitled', 120), str(b.sourceUrl, '', 500), Date.now(), hue, Date.now()).run();

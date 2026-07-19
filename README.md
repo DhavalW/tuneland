@@ -41,6 +41,10 @@ Full walkthrough with pictures: https://midhrami.com/tuneland/
   around it) or **rectangular lanes** (each song gets its own lane, side by
   side). Whichever song's ground a fan stands on is the song they hear,
   from about that point in the track.
+- Not a musician? Land can also be made from a picture, from your words,
+  or from a skyline you draw by hand, and podcast episodes upload as audio
+  the same way songs do. Each piece gets its own region, color and
+  markers, exactly like a track.
 - Glowing time markers cross the land every 30 seconds of each song, with
   the time spelled out in floating voxel digits, so fans always know how
   deep into a track they are standing.

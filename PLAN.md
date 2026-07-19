@@ -123,6 +123,14 @@ ground, colored from the arena key so both sides of a link render them
 identically. Tracks with no stored envelope get a deterministic
 pseudo-envelope, and worlds with no tracks fall back to plain seeded hills.
 
+**Non-musicians.** A "track" is really any stored envelope, so creators who
+are not musicians shape land from other sources, converted in the browser
+with only the numbers saved: a picture (column brightness becomes the
+profile, dominant color suggests the hue), words (word-length rhythm, with
+sentence ends as beats), or a skyline drawn by hand on a canvas. Podcast
+episodes are ordinary audio uploads. These silent regions play no music and
+keep the envelope-driven ambience.
+
 **Rights.** Artists host these files on their own accounts, in public, so
 the dashboard carries a copyright warning and a per-upload confirmation
 that the artist holds the rights to the recording; the README and the hub

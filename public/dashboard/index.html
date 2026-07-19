@@ -102,7 +102,7 @@
       <p class="hint">You are the first person here, which makes this world yours. Claiming stores a key in this browser. Do it now, on your own device.</p>
       <div class="warn">
         <b>The artist agreement, in short.</b>
-        Your world runs on your accounts and everything it hosts and does is your responsibility: the music, the loot, the links, and how it all gets used, correct or not, legal or not. You indemnify Midhrami Studios and hold it harmless against any claims arising from your world. The software comes as is, Midhrami can delist worlds from the public map, and every world honors Midhrami's superuser access (artist-level control, used to assist you and run cross-world campaigns). Read the full agreement at
+        Your world runs on your accounts and everything it hosts and does is your responsibility: the music, the loot, the links, and how it all gets used, correct or not, legal or not. You indemnify Midhrami Studios and hold it harmless against any claims arising from your world. The software comes as is, and Midhrami can delist worlds from the public map. Read the full agreement at
         <a href="https://midhrami.com/tuneland/agreement/" target="_blank" rel="noopener">midhrami.com/tuneland/agreement</a>.
       </div>
       <label class="rights-row"><input type="checkbox" id="cAgree" /> I have read and accept the Tuneland artist agreement. My world and its usage are my responsibility, and Midhrami is indemnified and not responsible for them.</label>
@@ -161,6 +161,37 @@
           <thead><tr><th>Title</th><th>Source</th><th></th></tr></thead>
           <tbody></tbody>
         </table>
+      </div>
+
+      <div class="card">
+        <h2>No songs? Make land from anything</h2>
+        <p class="hint">Tuneland is for creators, not only musicians. Turn a picture, your words, or a skyline you draw with your finger into terrain. It behaves exactly like a song: it gets a region of your world, a color, an order, and 30-second markers. Nothing you use here leaves your browser; only the shape of the land is saved.</p>
+        <div class="row">
+          <div><label>Name this land</label><input id="npTitle" maxlength="120" placeholder="Chapter one" /></div>
+          <div><label>How long a walk</label>
+            <select id="npDur">
+              <option value="60">1 minute</option>
+              <option value="120" selected>2 minutes</option>
+              <option value="180">3 minutes</option>
+              <option value="300">5 minutes</option>
+            </select>
+          </div>
+        </div>
+        <label>From a picture (bright parts become peaks)</label>
+        <div class="row">
+          <input id="npImage" type="file" accept="image/*" />
+          <button class="btn ghost" id="btnFromImage" style="flex:0 0 auto">Use the picture</button>
+        </div>
+        <label>From words (a poem, a chapter, an episode summary)</label>
+        <textarea id="npWords" rows="3" maxlength="8000" placeholder="Paste or write here. Long words swell the hills, sentence ends land as beats."></textarea>
+        <button class="btn ghost" id="btnFromWords">Use the words</button>
+        <label>Or draw your skyline</label>
+        <canvas id="npDraw" width="300" height="80" style="width:100%;max-width:480px;height:80px;border:1px solid var(--line);border-radius:10px;background:#08111c;touch-action:none;cursor:crosshair;display:block"></canvas>
+        <div class="row">
+          <button class="btn ghost" id="btnDrawClear" style="flex:0 0 auto">Clear</button>
+          <button class="btn" id="btnFromDraw" style="flex:0 0 auto">Use this skyline</button>
+        </div>
+        <p class="status" id="npStatus"></p>
       </div>
 
       <div class="card">
@@ -740,6 +771,143 @@
       })
     ).catch((e) => setStatus('trackStatus', e.message || 'Upload failed.', true))
       .finally(() => { $('btnUpload').disabled = false; });
+  });
+
+  /* ── land from anything: picture, words, drawn skyline ──
+     All conversion happens right here in the browser; only the resulting
+     shape (numbers between 0 and 1) is saved to the world. */
+  function smoothArr(a, passes) {
+    let out = a.slice();
+    for (let p = 0; p < (passes || 1); p++) {
+      const nx = out.slice();
+      for (let i = 0; i < out.length; i++) {
+        const l = out[Math.max(0, i - 1)], r = out[Math.min(out.length - 1, i + 1)];
+        nx[i] = (l + out[i] * 2 + r) / 4;
+      }
+      out = nx;
+    }
+    return out;
+  }
+  function normalizeArr(a) {
+    const sorted = a.slice().sort((x, y) => x - y);
+    const p95 = sorted[Math.floor(sorted.length * 0.95)] || 1;
+    return a.map((v) => clamp(v / p95, 0, 1));
+  }
+  function npDurVal() { return Number($('npDur').value) || 120; }
+  function createShapeTrack(title, envelope, hueSuggestion) {
+    setStatus('npStatus', 'Raising the land…');
+    return api('/api/admin/tracks', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ title, envelope, hue: hueSuggestion })
+    }).then((d) => {
+      if (!d.ok) throw new Error(d.error || 'that did not save');
+      setStatus('npStatus', 'Done. "' + title + '" is part of your terrain now. Order and color it below.');
+      $('npTitle').value = '';
+      refreshTracks();
+    }).catch((e) => setStatus('npStatus', e.message || 'That did not save.', true));
+  }
+  function npTitleOr(fallback) { return $('npTitle').value.trim() || fallback; }
+
+  $('btnFromImage').addEventListener('click', () => {
+    const file = $('npImage').files[0];
+    if (!file) { setStatus('npStatus', 'Pick a picture first.', true); return; }
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      try {
+        const cv = document.createElement('canvas');
+        cv.width = 300; cv.height = 60;
+        const c = cv.getContext('2d');
+        c.drawImage(img, 0, 0, 300, 60);
+        const data = c.getImageData(0, 0, 300, 60).data;
+        const env = new Array(300).fill(0);
+        let satBest = -1, hue = null;
+        for (let x = 0; x < 300; x++) {
+          let sum = 0;
+          for (let y = 0; y < 60; y++) {
+            const o = (y * 300 + x) * 4;
+            const r = data[o] / 255, g = data[o + 1] / 255, b = data[o + 2] / 255;
+            sum += (r + g + b) / 3;
+            const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+            const s = mx === 0 ? 0 : (mx - mn) / mx;
+            if (s * mx > satBest && mx < 0.95) {
+              satBest = s * mx;
+              const d2 = mx - mn;
+              let h = 0;
+              if (d2 > 0) {
+                if (mx === r) h = ((g - b) / d2) % 6;
+                else if (mx === g) h = (b - r) / d2 + 2;
+                else h = (r - g) / d2 + 4;
+              }
+              hue = ((h * 60 + 360) % 360) / 360;
+            }
+          }
+          env[x] = sum / 60;
+        }
+        URL.revokeObjectURL(url);
+        createShapeTrack(npTitleOr(file.name.replace(/\.[^.]+$/, '')),
+          { dur: npDurVal(), env: normalizeArr(smoothArr(env, 2)), beats: [] }, hue);
+      } catch (e) { setStatus('npStatus', 'Could not read that picture. Try another one.', true); }
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); setStatus('npStatus', 'Could not read that picture.', true); };
+    img.src = url;
+  });
+
+  $('btnFromWords').addEventListener('click', () => {
+    const text = $('npWords').value.trim();
+    if (text.split(/\s+/).length < 8) { setStatus('npStatus', 'Give it at least a few sentences to work with.', true); return; }
+    const words = text.split(/\s+/);
+    const raw = words.map((w) => clamp(w.replace(/[^\p{L}\p{N}]/gu, '').length / 9, 0.12, 1));
+    // resample the word rhythm into 300 bins
+    const env = new Array(300);
+    for (let i = 0; i < 300; i++) {
+      const f = i / 300 * (raw.length - 1);
+      const a = raw[Math.floor(f)], b = raw[Math.min(raw.length - 1, Math.floor(f) + 1)];
+      env[i] = lerp(a, b, f - Math.floor(f));
+    }
+    const dur = npDurVal();
+    const beats = [];
+    words.forEach((w, i) => {
+      if (/[.!?]$/.test(w) && beats.length < 400) beats.push(Math.round(i / words.length * dur * 100) / 100);
+    });
+    createShapeTrack(npTitleOr('Words'), { dur, env: normalizeArr(smoothArr(env, 3)), beats }, null);
+  });
+
+  /* drawn skyline */
+  const npCv = $('npDraw'), npCtx = npCv.getContext('2d');
+  let npHeights = new Array(300).fill(0.35), npDrawing = false, npLastX = -1;
+  function npRender() {
+    npCtx.clearRect(0, 0, 300, 80);
+    npCtx.fillStyle = 'rgba(198,242,78,0.25)';
+    npCtx.strokeStyle = '#c6f24e';
+    npCtx.lineWidth = 1.5;
+    npCtx.beginPath();
+    npCtx.moveTo(0, 80 - npHeights[0] * 76);
+    for (let x = 1; x < 300; x++) npCtx.lineTo(x, 80 - npHeights[x] * 76);
+    npCtx.stroke();
+    npCtx.lineTo(300, 80); npCtx.lineTo(0, 80); npCtx.closePath();
+    npCtx.fill();
+  }
+  npRender();
+  function npPoint(e) {
+    const r = npCv.getBoundingClientRect();
+    const x = clamp(Math.round((e.clientX - r.left) / r.width * 299), 0, 299);
+    const v = clamp(1 - (e.clientY - r.top) / r.height, 0, 1);
+    if (npLastX >= 0 && Math.abs(x - npLastX) > 1) {
+      const from = Math.min(npLastX, x), to = Math.max(npLastX, x);
+      const v0 = npHeights[npLastX];
+      for (let i = from; i <= to; i++) npHeights[i] = lerp(v0, v, (i - from) / Math.max(1, to - from));
+    } else npHeights[x] = v;
+    npLastX = x;
+    npRender();
+  }
+  npCv.addEventListener('pointerdown', (e) => { npDrawing = true; npLastX = -1; npPoint(e); npCv.setPointerCapture(e.pointerId); });
+  npCv.addEventListener('pointermove', (e) => { if (npDrawing) npPoint(e); });
+  npCv.addEventListener('pointerup', () => { npDrawing = false; npLastX = -1; });
+  npCv.addEventListener('pointercancel', () => { npDrawing = false; npLastX = -1; });
+  $('btnDrawClear').addEventListener('click', () => { npHeights = new Array(300).fill(0.35); npRender(); });
+  $('btnFromDraw').addEventListener('click', () => {
+    createShapeTrack(npTitleOr('My skyline'), { dur: npDurVal(), env: smoothArr(npHeights, 1), beats: [] }, null);
   });
 
   /* loot */
