@@ -6,163 +6,188 @@
   <title>Tuneland world</title>
   <meta name="description" content="A voxel world built by an artist for their fans. Walk it, fly it, dig up buried loot while the music plays, and cross into linked worlds next door. Free, in your browser, made for phones." />
   <meta name="robots" content="index, follow" />
-  <meta name="theme-color" content="#171226" />
+  <meta name="theme-color" content="#f0e3c6" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23171226'/%3E%3Crect x='4' y='18' width='6' height='6' fill='%23f2a33c'/%3E%3Crect x='13' y='12' width='6' height='6' fill='%2345b8a4'/%3E%3Crect x='22' y='20' width='6' height='6' fill='%23e2603f'/%3E%3Ccircle cx='24' cy='7' r='2.4' fill='%23f2a33c'/%3E%3Cpath d='M26.2 7 L26.2 2.4 L29 3.2' stroke='%23f2a33c' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23f0e3c6'/%3E%3Crect x='1.5' y='1.5' width='29' height='29' fill='none' stroke='%232a1c12' stroke-width='2'/%3E%3Crect x='6' y='17' width='7' height='8' fill='%23c73a2a'/%3E%3Crect x='14' y='11' width='7' height='14' fill='%2314655a'/%3E%3Crect x='22' y='20' width='5' height='5' fill='%23d98e04'/%3E%3C/svg%3E" />
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Come wander my Tuneland world" />
   <meta property="og:description" content="A voxel world built from my music. Walk it, fly it, dig up buried loot, and cross into the worlds next door." />
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Yatra+One&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
 
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --void: #171226; --panel: #251f3a; --panel-2: #2f2647;
-      --acid: #f2a33c; --acid-dim: rgba(242,163,60,0.55);
-      --ice: #45b8a4; --coral: #e2603f; --bone: #f2ead8;
-      --bone-70: rgba(242,234,216,0.72); --bone-45: rgba(242,234,216,0.45);
-      --bone-25: rgba(242,234,216,0.25); --line: rgba(242,234,216,0.14);
-      --disp: 'Bricolage Grotesque', system-ui, sans-serif;
-      --mono: 'Space Mono', ui-monospace, monospace;
+      /* printed on cheap poster stock: matchbox inks on aged paper */
+      --paper: #f0e3c6;
+      --paper-2: #e7d6ae;
+      --paper-deep: #d9c493;
+      --ink: #2a1c12;
+      --ink-70: rgba(42,28,18,0.72);
+      --ink-45: rgba(42,28,18,0.5);
+      --ink-25: rgba(42,28,18,0.28);
+      --line: rgba(42,28,18,0.35);
+      --sindoor: #c73a2a;   /* matchbox red */
+      --mor: #14655a;       /* peacock green ink */
+      --genda: #d98e04;     /* mustard marigold */
+      --rani: #c2185b;      /* rani pink */
+      --disp: 'Yatra One', 'Bricolage Grotesque', system-ui, sans-serif;
+      --mono: 'Courier Prime', 'Space Mono', ui-monospace, monospace;
       --safe-b: env(safe-area-inset-bottom, 0px);
       --safe-t: env(safe-area-inset-top, 0px);
+      --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0.16 0 0 0 0 0.1 0 0 0 0 0.05 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
     }
     html { -webkit-text-size-adjust: 100%; }
     body {
-      background: radial-gradient(rgba(242,163,60,0.035) 1px, transparent 1.3px), linear-gradient(180deg, #171226 0%, #241a38 60%, #33234a 100%);
-      background-size: 26px 26px, auto;
+      background: var(--grain), radial-gradient(120% 90% at 50% 0%, #f4e9d0 0%, var(--paper) 55%, var(--paper-2) 100%);
       background-attachment: fixed;
-      color: var(--bone); font-family: var(--mono); line-height: 1.55;
+      color: var(--ink); font-family: var(--mono); line-height: 1.55;
       -webkit-font-smoothing: antialiased; overflow-x: hidden;
       -webkit-tap-highlight-color: transparent;
     }
     a { color: inherit; }
     button { font-family: inherit; color: inherit; background: none; border: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
     input { font-family: inherit; }
-    ::selection { background: var(--acid); color: var(--void); }
+    ::selection { background: var(--sindoor); color: var(--paper); }
 
     .btn-primary {
       display: flex; align-items: center; justify-content: center; gap: 0.7rem;
       width: 100%; min-height: 56px; padding: 0.9rem 1.4rem;
-      font-weight: 700; font-size: 0.8rem; letter-spacing: 0.16em; text-transform: uppercase;
-      color: var(--void); background: var(--acid); border-radius: 14px; text-decoration: none;
-      box-shadow: 0 0 0 1px rgba(242,163,60,0.4), 0 6px 30px rgba(242,163,60,0.22);
-      transition: transform 0.12s ease, filter 0.2s ease; touch-action: manipulation;
+      font-family: var(--disp); font-weight: 400; font-size: 1.05rem; letter-spacing: 0.04em; text-transform: uppercase;
+      color: var(--paper); background: var(--sindoor); border: 2px solid var(--ink); border-radius: 6px; text-decoration: none;
+      box-shadow: 4px 4px 0 var(--ink);
+      transition: transform 0.1s ease, box-shadow 0.1s ease; touch-action: manipulation;
     }
-    .btn-primary:active { transform: scale(0.97); }
+    .btn-primary:active { transform: translate(3px, 3px); box-shadow: 1px 1px 0 var(--ink); }
     .btn-ghost {
       display: flex; align-items: center; justify-content: center; gap: 0.6rem;
       width: 100%; min-height: 48px; padding: 0.8rem 1.2rem;
-      font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase;
-      color: var(--bone-70); border: 1px solid var(--line); border-radius: 14px; text-decoration: none;
-      background: rgba(23,18,38,0.45); transition: border-color 0.2s ease, transform 0.12s ease;
-      touch-action: manipulation;
+      font-size: 0.72rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--ink); border: 2px solid var(--ink); border-radius: 6px; text-decoration: none;
+      background: var(--paper); box-shadow: 3px 3px 0 rgba(42,28,18,0.25);
+      transition: transform 0.1s ease, box-shadow 0.1s ease; touch-action: manipulation;
     }
-    .btn-ghost:active { transform: scale(0.97); }
-    .btn-ghost:hover, .btn-primary:hover { filter: brightness(1.06); }
+    .btn-ghost:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 rgba(42,28,18,0.25); }
     .chip {
       display: inline-flex; align-items: center; gap: 0.45rem;
-      font-size: 0.62rem; letter-spacing: 0.18em; text-transform: uppercase;
-      color: var(--bone-45); border: 1px solid var(--line); padding: 0.32rem 0.75rem; border-radius: 999px;
-      background: rgba(23,18,38,0.55);
+      font-size: 0.62rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--ink-70); border: 1.5px dashed var(--line); padding: 0.35rem 0.8rem; border-radius: 3px;
+      background: rgba(255,250,235,0.55);
     }
-    .chip .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--acid); box-shadow: 0 0 8px var(--acid); }
+    .chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--sindoor); box-shadow: none; }
 
-    #menuBg { position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.85; }
+    #menuBg { position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 1; }
     .vignette {
       position: fixed; inset: 0; z-index: 2; pointer-events: none;
-      background: radial-gradient(120% 100% at 50% 40%, transparent 55%, rgba(10,7,16,0.6) 100%);
+      background: radial-gradient(130% 105% at 50% 45%, transparent 62%, rgba(90,62,30,0.28) 100%);
     }
     body.playing #menuBg, body.playing .vignette { display: none; }
-    .world-pitch { margin-top: 1rem; font-size: 0.8rem; color: var(--bone); max-width: 40ch; line-height: 1.8; text-shadow: 0 2px 14px rgba(12,8,20,0.9); }
+
+    /* ── menu: a gig poster ── */
+    .hero { max-width: 640px; margin: 0 auto; padding: calc(2rem + var(--safe-t)) 1.5rem 3rem; position: relative; z-index: 5; }
+    .eyebrow { display: flex; align-items: center; gap: 0.7rem; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--sindoor); }
+    .eyebrow::before { content: '✦'; color: var(--genda); }
+    h1.world-title {
+      font-family: var(--disp); font-weight: 400;
+      font-size: clamp(2.6rem, 12vw, 5rem); line-height: 1.02; letter-spacing: 0.01em;
+      margin: 0.7rem 0 0; text-transform: uppercase; overflow-wrap: break-word;
+      color: var(--ink);
+      text-shadow: 3px 3px 0 rgba(199,58,42,0.45); /* off-register second pass of ink */
+    }
+    .world-artist { margin-top: 0.7rem; font-family: var(--disp); font-size: 1rem; color: var(--mor); }
+    .world-bio { margin-top: 0.9rem; font-size: 0.78rem; color: var(--ink-70); max-width: 44ch; line-height: 1.8; }
+    .world-pitch { margin-top: 1rem; font-size: 0.82rem; font-weight: 700; color: var(--ink); max-width: 42ch; line-height: 1.8; }
     .stat-row { display: flex; gap: 0.5rem; margin-top: 1.2rem; flex-wrap: wrap; }
+    .menu-ctas { max-width: 380px; margin-top: 1.8rem; display: flex; flex-direction: column; gap: 0.7rem; }
+
+    .fan-row { margin-top: 1.8rem; max-width: 380px; }
+    .fan-label { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-45); margin-bottom: 0.5rem; }
+    .fan-input {
+      width: 100%; min-height: 48px; padding: 0.7rem 1rem; font-size: 0.9rem; color: var(--ink);
+      background: rgba(255,250,235,0.8); border: 2px solid var(--ink); border-radius: 6px; outline: none;
+    }
+    .fan-input:focus { border-color: var(--sindoor); }
+    .fan-input::placeholder { color: var(--ink-45); }
+
+    /* matchbox-label cards: solid border, dashed inner rule */
+    .friend-box, .race-card {
+      margin-top: 1.4rem; max-width: 380px; position: relative;
+      border: 2px solid var(--ink); border-radius: 6px; padding: 1rem 1.1rem;
+      background: #faf3e0; box-shadow: 4px 4px 0 rgba(42,28,18,0.28);
+    }
+    .friend-box::after, .race-card::after {
+      content: ''; position: absolute; inset: 4px; border: 1px dashed var(--line); border-radius: 4px; pointer-events: none;
+    }
+    .race-card { border-color: var(--mor); box-shadow: 4px 4px 0 rgba(20,101,90,0.3); }
+    .friend-box .fb-t, .rc-eyebrow { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--sindoor); margin-bottom: 0.5rem; }
+    .rc-eyebrow { color: var(--mor); }
+    .rc-line { font-size: 0.76rem; color: var(--ink); line-height: 1.7; margin-bottom: 0.9rem; }
+    .friend-code { font-size: 0.74rem; font-weight: 700; color: var(--mor); word-break: break-all; }
+    .friend-list { margin-top: 0.5rem; font-size: 0.7rem; color: var(--ink-70); }
+    .friend-add-row { display: flex; gap: 0.4rem; margin-top: 0.6rem; position: relative; z-index: 1; }
+    .friend-add-row input { flex: 1; min-width: 0; min-height: 42px; padding: 0.5rem 0.8rem; font-size: 0.74rem; color: var(--ink); background: rgba(255,250,235,0.9); border: 1.5px solid var(--ink); border-radius: 5px; outline: none; }
+    .friend-add-row button { min-height: 42px; padding: 0 1rem; border-radius: 5px; background: var(--genda); color: var(--ink); border: 1.5px solid var(--ink); font-size: 0.64rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+
+    .how-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.7rem; margin-top: 2.4rem; max-width: 560px; list-style: none; }
+    .how-strip li {
+      border: 2px solid var(--ink); border-radius: 6px; padding: 0.9rem; background: #faf3e0;
+      box-shadow: 3px 3px 0 rgba(42,28,18,0.28);
+    }
+    .how-strip li:nth-child(odd) { transform: rotate(-0.5deg); }
+    .how-strip li:nth-child(even) { transform: rotate(0.4deg); }
+    .how-strip .g { font-size: 1.3rem; display: block; margin-bottom: 0.4rem; }
+    .how-strip b { display: block; font-family: var(--disp); font-weight: 400; font-size: 0.95rem; letter-spacing: 0.03em; text-transform: uppercase; margin-bottom: 0.25rem; color: var(--sindoor); }
+    .how-strip span { font-size: 0.68rem; color: var(--ink-70); line-height: 1.55; display: block; }
+
+    .neighbors {
+      margin-top: 2rem; max-width: 560px; position: relative; z-index: 5;
+      background: #faf3e0; border: 2px solid var(--ink); border-radius: 6px; padding: 1rem 1.1rem;
+      box-shadow: 3px 3px 0 rgba(42,28,18,0.28);
+    }
+    .neighbors .fb-t { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--sindoor); margin-bottom: 0.6rem; }
+    .nb-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .nb-row a { font-size: 0.7rem; font-weight: 700; color: var(--mor); text-decoration: none; border: 1.5px solid var(--mor); border-radius: 3px; padding: 0.4rem 0.9rem; background: rgba(255,250,235,0.6); }
+    .lb-list { list-style: none; counter-reset: lb; }
+    .lb-list li { counter-increment: lb; font-size: 0.74rem; color: var(--ink-70); padding: 0.35rem 0; border-bottom: 1px dashed var(--line); display: flex; gap: 0.6rem; }
+    .lb-list li::before { content: counter(lb) '.'; color: var(--sindoor); font-weight: 700; min-width: 1.4rem; }
+    .lb-list li b { color: var(--ink); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .site-foot {
+      position: relative; z-index: 5;
+      margin: 0 auto; padding: 2rem 1.5rem calc(2.5rem + var(--safe-b));
+      border-top: 3px solid var(--ink);
+      background: var(--grain), linear-gradient(180deg, var(--paper), var(--paper-2));
+      justify-content: center;
+      display: flex; flex-wrap: wrap; gap: 0.4rem 1.4rem;
+      font-size: 0.62rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-45);
+    }
+    .site-foot a { text-decoration: none; color: var(--ink-70); }
+    .site-foot a:hover { color: var(--sindoor); }
+
     .prose {
       position: relative; z-index: 5;
-      max-width: 640px; margin: 0 auto; padding: 3rem 1.5rem;
-      border-top: 1px solid var(--line);
-      background: rgba(22,17,35,0.55);
+      margin: 0 auto; padding: 3rem 1.5rem;
+      border-top: 3px solid var(--ink);
+      background: var(--grain), linear-gradient(180deg, #f4e9d0, var(--paper));
     }
-    .prose h2 { font-family: var(--disp); font-weight: 700; font-size: clamp(1.4rem, 5vw, 2rem); letter-spacing: -0.02em; margin-bottom: 1rem; }
-    .prose h2 em { font-style: normal; color: var(--acid); }
-    .prose p { font-size: 0.78rem; color: var(--bone-70); line-height: 1.9; margin-bottom: 1rem; max-width: 62ch; }
-    .prose p b { color: var(--bone); }
-    details.faq { border: 1px solid var(--line); border-radius: 12px; margin-bottom: 0.6rem; background: rgba(37,31,58,0.6); }
-    details.faq summary { cursor: pointer; padding: 0.9rem 1.1rem; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+    .prose > * { max-width: 640px; margin-left: auto; margin-right: auto; }
+    .prose h2, .prose p { max-width: 640px; }
+    .prose h2 { font-family: var(--disp); font-weight: 400; font-size: clamp(1.5rem, 6vw, 2.2rem); letter-spacing: 0.01em; margin-bottom: 1rem; text-transform: uppercase; text-shadow: 2px 2px 0 rgba(20,101,90,0.35); }
+    .prose h2 em { font-style: normal; color: var(--sindoor); }
+    .prose p { font-size: 0.78rem; color: var(--ink-70); line-height: 1.9; margin-bottom: 1rem; max-width: 62ch; }
+    .prose p b { color: var(--ink); }
+    details.faq { border: 2px solid var(--ink); border-radius: 6px; margin-bottom: 0.7rem; background: rgba(255,250,235,0.65); box-shadow: 3px 3px 0 rgba(42,28,18,0.15); }
+    details.faq summary { cursor: pointer; padding: 0.9rem 1.1rem; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.04em; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
     details.faq summary::-webkit-details-marker { display: none; }
-    details.faq summary::after { content: '+'; color: var(--acid); flex-shrink: 0; }
+    details.faq summary::after { content: '+'; color: var(--sindoor); font-weight: 700; flex-shrink: 0; }
     details.faq[open] summary::after { content: '−'; }
-    details.faq p { padding: 0 1.1rem 1rem; margin: 0; font-size: 0.74rem; color: var(--bone-70); line-height: 1.8; }
+    details.faq p { padding: 0 1.1rem 1rem; margin: 0; font-size: 0.74rem; color: var(--ink-70); line-height: 1.8; }
 
-    /* ── menu ── */
-    .hero { max-width: 640px; margin: 0 auto; padding: calc(2rem + var(--safe-t)) 1.5rem 3rem; position: relative; z-index: 5; }
-    .site-foot { position: relative; z-index: 5; }
-    .eyebrow { display: flex; align-items: center; gap: 0.7rem; font-size: 0.62rem; letter-spacing: 0.28em; text-transform: uppercase; color: var(--acid-dim); }
-    .eyebrow::before { content: ''; width: 26px; height: 2px; background: repeating-linear-gradient(90deg, var(--acid-dim) 0 4px, transparent 4px 8px); }
-    h1.world-title {
-      font-family: var(--disp); font-weight: 800;
-      font-size: clamp(2.4rem, 11vw, 4.6rem); line-height: 0.95; letter-spacing: -0.03em;
-      margin: 0.9rem 0 0; text-transform: uppercase; overflow-wrap: break-word;
-    }
-    .world-artist { margin-top: 0.7rem; font-size: 0.8rem; color: var(--ice); }
-    .world-bio { margin-top: 0.9rem; font-size: 0.76rem; color: var(--bone-70); max-width: 44ch; line-height: 1.8; }
-    .menu-ctas { max-width: 380px; margin-top: 1.8rem; display: flex; flex-direction: column; gap: 0.6rem; }
-    .fan-row { margin-top: 1.6rem; max-width: 380px; }
-    .fan-label { font-size: 0.6rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--bone-45); margin-bottom: 0.5rem; }
-    .fan-input {
-      width: 100%; min-height: 48px; padding: 0.7rem 1rem; font-size: 0.85rem; color: var(--bone);
-      background: rgba(23,18,38,0.6); border: 1px solid var(--line); border-radius: 12px; outline: none;
-    }
-    .fan-input:focus { border-color: var(--acid-dim); }
-    .friend-box { margin-top: 1.2rem; max-width: 380px; border: 1px solid var(--line); border-radius: 14px; padding: 0.9rem 1rem; background: rgba(37,31,58,0.5); }
-    .friend-box .fb-t { font-size: 0.6rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--bone-45); margin-bottom: 0.5rem; }
-    .friend-code { font-size: 0.72rem; color: var(--ice); word-break: break-all; }
-    .friend-list { margin-top: 0.5rem; font-size: 0.68rem; color: var(--bone-70); }
-    .friend-add-row { display: flex; gap: 0.4rem; margin-top: 0.6rem; }
-    .friend-add-row input { flex: 1; min-width: 0; min-height: 42px; padding: 0.5rem 0.8rem; font-size: 0.72rem; color: var(--bone); background: rgba(23,18,38,0.6); border: 1px solid var(--line); border-radius: 10px; outline: none; }
-    .friend-add-row button { min-height: 42px; padding: 0 1rem; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--line); font-size: 0.62rem; letter-spacing: 0.12em; text-transform: uppercase; }
-    .how-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.6rem; margin-top: 2.2rem; max-width: 560px; list-style: none; }
-    .how-strip li { border: 1px solid var(--line); border-radius: 12px; padding: 0.9rem; background: rgba(37,31,58,0.6); }
-    .how-strip .g { font-size: 1.3rem; display: block; margin-bottom: 0.4rem; }
-    .how-strip b { display: block; font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.25rem; }
-    .how-strip span { font-size: 0.66rem; color: var(--bone-45); line-height: 1.5; display: block; }
-    .neighbors { margin-top: 2rem; max-width: 560px; }
-    .neighbors .fb-t { font-size: 0.6rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--bone-45); margin-bottom: 0.6rem; }
-    .nb-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-    .nb-row a { font-size: 0.68rem; color: var(--ice); text-decoration: none; border: 1px solid var(--line); border-radius: 999px; padding: 0.4rem 0.9rem; }
-    .site-foot {
-      max-width: 640px; margin: 0 auto; padding: 2rem 1.5rem calc(2.5rem + var(--safe-b));
-      border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 0.4rem 1.4rem;
-      font-size: 0.6rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--bone-25);
-    }
-    .site-foot a { text-decoration: none; color: var(--bone-45); }
-    .site-foot a:hover { color: var(--bone); }
-
-    .race-card {
-      margin-top: 1rem; max-width: 380px;
-      border: 1px solid rgba(69,184,164,0.45); border-radius: 14px;
-      background: rgba(69,184,164,0.08); padding: 1rem 1.1rem;
-    }
-    .rc-eyebrow { font-size: 0.6rem; letter-spacing: 0.24em; text-transform: uppercase; color: var(--ice); margin-bottom: 0.4rem; }
-    .rc-line { font-size: 0.76rem; color: var(--bone); line-height: 1.7; margin-bottom: 0.9rem; }
-    .lb-list { list-style: none; counter-reset: lb; }
-    .lb-list li { counter-increment: lb; font-size: 0.72rem; color: var(--bone-70); padding: 0.3rem 0; border-bottom: 1px solid var(--line); display: flex; gap: 0.6rem; }
-    .lb-list li::before { content: counter(lb); color: var(--acid); min-width: 1.2rem; }
-    .lb-list li b { color: var(--bone); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .pass-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin-top: 0.8rem; }
-    .pass-grid .pg { border: 1px solid var(--line); border-radius: 10px; padding: 0.6rem; background: rgba(23,18,38,0.4); }
-    .pass-grid .pg b { display: block; font-family: var(--disp); font-size: 1.3rem; color: var(--acid); }
-    .pass-grid .pg span { font-size: 0.56rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--bone-45); }
-    .pass-sub { font-size: 0.62rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--bone-45); margin-top: 0.8rem; }
-    .pass-finds { max-height: 160px; overflow-y: auto; margin-top: 0.4rem; }
-    .pass-finds .pf { font-size: 0.68rem; color: var(--bone-70); padding: 0.25rem 0; border-bottom: 1px solid var(--line); }
-    .pass-finds .pf i { font-style: normal; color: var(--ice); }
-
-    /* ── game layer ── */
+    /* ── game layer: the world is the show, the HUD is paper stickers ── */
     #game { position: fixed; inset: 0; z-index: 20; display: none; background: #0e0b18; }
     #game.on { display: block; }
     #gl { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; display: block; }
@@ -170,124 +195,140 @@
 
     .hud-top {
       position: absolute; top: 0; left: 0; right: 0; z-index: 5;
-      display: flex; align-items: center; gap: 0.6rem;
+      display: flex; align-items: center; gap: 0.5rem;
       padding: calc(0.7rem + var(--safe-t)) 1rem 0.5rem; pointer-events: none;
     }
     .hud-top > * { pointer-events: auto; }
     .hud-btn {
-      font-size: 0.58rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--bone);
-      background: rgba(20,15,30,0.55); border: 1px solid var(--line); border-radius: 999px; padding: 0.5rem 0.8rem;
+      font-size: 0.6rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink);
+      background: var(--paper); border: 2px solid var(--ink); border-radius: 5px; padding: 0.45rem 0.7rem;
+      box-shadow: 2px 2px 0 rgba(0,0,0,0.45);
     }
-    .hud-btn.lit { background: rgba(242,163,60,0.85); color: var(--void); border-color: transparent; }
-    .hud-where { flex: 1; min-width: 0; pointer-events: none; text-shadow: 0 1px 6px rgba(0,0,0,0.8); }
-    .hud-where .hw-world { font-size: 0.66rem; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .hud-where .hw-area { font-size: 0.55rem; color: var(--bone-70); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .hud-btn.lit { background: var(--genda); }
+    .hud-where { flex: 1; min-width: 0; pointer-events: none; text-shadow: 0 1px 6px rgba(0,0,0,0.85); }
+    .hud-where .hw-world { font-family: var(--disp); font-size: 0.78rem; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .hud-where .hw-area { font-size: 0.6rem; color: rgba(255,255,255,0.75); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
     .area-banner {
-      position: absolute; top: calc(4.6rem + var(--safe-t)); left: 50%; transform: translateX(-50%);
+      position: absolute; top: calc(4.6rem + var(--safe-t)); left: 50%; transform: translateX(-50%) rotate(-1deg);
       z-index: 5; pointer-events: none; text-align: center;
-      font-family: var(--disp); font-weight: 800; font-size: clamp(1.1rem, 5vw, 1.8rem);
-      text-transform: uppercase; letter-spacing: 0.04em; color: #fff;
-      text-shadow: 0 2px 20px rgba(0,0,0,0.8); opacity: 0; transition: opacity 0.6s ease;
-      max-width: 90vw;
+      font-family: var(--disp); font-size: clamp(1.1rem, 5vw, 1.8rem);
+      text-transform: uppercase; letter-spacing: 0.03em; color: var(--paper);
+      background: rgba(42,28,18,0.82); border: 2px solid var(--paper); border-radius: 6px;
+      padding: 0.3rem 1.1rem;
+      opacity: 0; transition: opacity 0.6s ease; max-width: 90vw;
     }
     .area-banner.on { opacity: 1; }
-    .area-banner small { display: block; font-family: var(--mono); font-weight: 400; font-size: 0.58rem; letter-spacing: 0.22em; color: var(--bone-70); margin-top: 0.2rem; }
+    .area-banner small { display: block; font-family: var(--mono); font-size: 0.58rem; letter-spacing: 0.18em; color: rgba(240,227,198,0.8); margin-top: 0.15rem; }
 
     .hint-toast {
       position: absolute; left: 50%; bottom: calc(7.6rem + var(--safe-b)); transform: translateX(-50%);
       z-index: 6; pointer-events: none; white-space: nowrap; max-width: 92vw; overflow: hidden; text-overflow: ellipsis;
-      font-size: 0.6rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--bone);
-      background: rgba(20,15,30,0.65); border: 1px solid var(--line); border-radius: 999px; padding: 0.55rem 1.1rem;
-      opacity: 0; transition: opacity 0.5s ease;
+      font-size: 0.62rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink);
+      background: var(--paper); border: 2px solid var(--ink); border-radius: 5px; padding: 0.5rem 1rem;
+      box-shadow: 3px 3px 0 rgba(0,0,0,0.4);
+      opacity: 0; transition: opacity 0.4s ease;
     }
     .hint-toast.on { opacity: 1; }
 
-    /* radar */
     #radarWrap {
       position: absolute; right: 1rem; bottom: calc(7.4rem + var(--safe-b)); z-index: 5;
       width: 108px; height: 108px; pointer-events: none;
-      opacity: 0; transform: scale(0.7); transition: opacity 0.35s ease, transform 0.35s ease;
+      opacity: 0; transform: scale(0.7) rotate(3deg); transition: opacity 0.35s ease, transform 0.35s ease;
+      filter: drop-shadow(3px 3px 0 rgba(0,0,0,0.4));
     }
-    #radarWrap.on { opacity: 1; transform: scale(1); }
+    #radarWrap.on { opacity: 1; transform: scale(1) rotate(0deg); }
     #radar { width: 108px; height: 108px; }
 
-    /* touch controls */
     .joy {
       position: absolute; z-index: 5; pointer-events: none; opacity: 0;
       width: 96px; height: 96px; border-radius: 50%;
-      border: 1.5px solid rgba(242,234,216,0.35); background: rgba(23,18,38,0.25);
+      border: 2px dashed rgba(240,227,198,0.65); background: rgba(42,28,18,0.25);
     }
-    .joy .knob { position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; margin: -20px; border-radius: 50%; background: rgba(242,234,216,0.45); }
+    .joy .knob { position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; margin: -20px; border-radius: 50%; background: rgba(240,227,198,0.7); }
     .tbtns {
       position: absolute; right: 1rem; bottom: calc(1.2rem + var(--safe-b)); z-index: 5;
       display: flex; flex-direction: column; gap: 0.55rem; align-items: flex-end;
     }
     .tbtn {
       width: 58px; height: 58px; border-radius: 50%;
-      background: rgba(23,18,38,0.5); border: 1.5px solid rgba(242,234,216,0.3);
-      color: var(--bone); font-size: 1.15rem; touch-action: manipulation;
+      background: rgba(240,227,198,0.85); border: 2px solid var(--ink);
+      color: var(--ink); font-size: 1.15rem; touch-action: manipulation;
       display: flex; align-items: center; justify-content: center;
+      box-shadow: 2px 2px 0 rgba(0,0,0,0.45);
     }
-    .tbtn:active { background: rgba(242,163,60,0.35); }
+    .tbtn:active { background: var(--genda); }
     .tbtn.hide { display: none; }
     @media (hover: hover) and (pointer: fine) { .tbtns { display: none; } }
 
     .kbd-help {
       position: absolute; left: 1rem; bottom: calc(1rem + var(--safe-b)); z-index: 5; pointer-events: none;
-      font-size: 0.56rem; letter-spacing: 0.1em; color: var(--bone-25); line-height: 1.9; text-transform: uppercase;
+      font-size: 0.56rem; letter-spacing: 0.1em; color: rgba(240,227,198,0.5); line-height: 1.9; text-transform: uppercase;
     }
     @media (hover: none) { .kbd-help { display: none; } }
 
-    .crash-flash { position: absolute; inset: 0; z-index: 4; pointer-events: none; background: radial-gradient(80% 70% at 50% 60%, rgba(226,96,63,0.35), transparent 70%); opacity: 0; }
+    .crash-flash { position: absolute; inset: 0; z-index: 4; pointer-events: none; background: radial-gradient(80% 70% at 50% 60%, rgba(199,58,42,0.35), transparent 70%); opacity: 0; }
     .crash-flash.go { animation: bflash 0.5s ease; }
-    .beat-flash { position: absolute; inset: 0; z-index: 4; pointer-events: none; background: radial-gradient(70% 60% at 50% 45%, rgba(255,255,255,0.16), transparent 70%); opacity: 0; }
+    .beat-flash { position: absolute; inset: 0; z-index: 4; pointer-events: none; background: radial-gradient(70% 60% at 50% 45%, rgba(255,244,214,0.16), transparent 70%); opacity: 0; }
     .beat-flash.go { animation: bflash 0.5s ease; }
     @keyframes bflash { 15% { opacity: 1; } 100% { opacity: 0; } }
 
-    /* overlays */
     .veil {
       position: fixed; inset: 0; z-index: 45; display: none;
       flex-direction: column; align-items: center; justify-content: center; text-align: center;
-      background: rgba(14,10,22,0.92); padding: 2rem;
+      background: var(--grain), radial-gradient(120% 90% at 50% 0%, #f4e9d0, var(--paper-2)); padding: 2rem;
     }
     .veil.on { display: flex; }
-    .veil .v-title { font-family: var(--disp); font-weight: 800; font-size: clamp(1.5rem, 6vw, 2.2rem); letter-spacing: -0.02em; text-transform: uppercase; }
-    .veil .v-sub { font-size: 0.7rem; color: var(--bone-45); margin-top: 0.6rem; max-width: 36ch; line-height: 1.8; }
-    .veil .v-step { font-size: 0.62rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--acid-dim); margin-top: 1.6rem; min-height: 1.4em; animation: hb 1.6s ease-in-out infinite; }
+    .veil .v-title { font-family: var(--disp); font-size: clamp(1.6rem, 6vw, 2.4rem); text-transform: uppercase; color: var(--ink); text-shadow: 2px 2px 0 rgba(199,58,42,0.4); }
+    .veil .v-sub { font-size: 0.74rem; color: var(--ink-70); margin-top: 0.6rem; max-width: 36ch; line-height: 1.8; }
+    .veil .v-step { font-size: 0.64rem; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--sindoor); margin-top: 1.6rem; min-height: 1.4em; animation: hb 1.6s ease-in-out infinite; }
     @keyframes hb { 50% { opacity: 0.35; } }
-    .veil .v-ctas { width: 100%; max-width: 340px; margin-top: 1.8rem; display: flex; flex-direction: column; gap: 0.6rem; }
+    .veil .v-ctas { width: 100%; max-width: 340px; margin-top: 1.8rem; display: flex; flex-direction: column; gap: 0.7rem; }
 
-    /* loot modal */
+    /* modals: handbills pinned over the world */
     .loot-modal {
       position: fixed; inset: 0; z-index: 50; display: none;
       align-items: flex-start; justify-content: center; padding: 1.5rem;
-      background: rgba(14,10,22,0.8); overflow-y: auto;
+      background: rgba(26,16,10,0.72); overflow-y: auto;
     }
     .loot-modal.on { display: flex; }
     .loot-card {
-      width: 100%; max-width: 380px; border: 1px solid rgba(242,163,60,0.5); border-radius: 18px;
-      background: var(--panel); padding: 1.4rem; text-align: center;
-      box-shadow: 0 0 60px rgba(242,163,60,0.2);
-      margin: auto 0; max-height: none;
+      width: 100%; max-width: 380px; position: relative;
+      border: 2px solid var(--ink); border-radius: 6px;
+      background: var(--grain), linear-gradient(160deg, #f6ecd4, var(--paper));
+      padding: 1.4rem; text-align: center; color: var(--ink);
+      box-shadow: 6px 6px 0 rgba(0,0,0,0.5);
+      margin: auto 0;
     }
-    #shotImg { max-height: 42vh; object-fit: contain; background: #0e0b18; }
-    .loot-card .lc-eyebrow { font-size: 0.6rem; letter-spacing: 0.3em; text-transform: uppercase; color: var(--acid-dim); }
-    .loot-card .lc-title { font-family: var(--disp); font-weight: 800; font-size: 1.5rem; margin-top: 0.5rem; text-transform: uppercase; overflow-wrap: break-word; }
-    .loot-card .lc-msg { font-size: 0.76rem; color: var(--bone-70); margin-top: 0.7rem; line-height: 1.7; overflow-wrap: break-word; }
+    .loot-card::after { content: ''; position: absolute; inset: 5px; border: 1px dashed var(--line); border-radius: 4px; pointer-events: none; }
+    .loot-card > * { position: relative; z-index: 1; }
+    #shotImg { max-height: 42vh; object-fit: contain; background: #0e0b18; border: 2px solid var(--ink); border-radius: 4px; }
+    .loot-card .lc-eyebrow { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.26em; text-transform: uppercase; color: var(--sindoor); }
+    .loot-card .lc-title { font-family: var(--disp); font-size: 1.6rem; margin-top: 0.5rem; text-transform: uppercase; overflow-wrap: break-word; text-shadow: 2px 2px 0 rgba(20,101,90,0.3); }
+    .loot-card .lc-msg { font-size: 0.76rem; color: var(--ink-70); margin-top: 0.7rem; line-height: 1.7; overflow-wrap: break-word; }
     .loot-card .lc-code {
-      margin-top: 0.9rem; font-size: 1rem; font-weight: 700; color: var(--acid);
-      border: 1px dashed var(--acid-dim); border-radius: 10px; padding: 0.6rem; user-select: all; overflow-wrap: break-word;
+      margin-top: 0.9rem; font-size: 1.05rem; font-weight: 700; color: var(--paper); background: var(--mor);
+      border: 2px solid var(--ink); border-radius: 5px; padding: 0.6rem; user-select: all; overflow-wrap: break-word;
     }
-    .loot-card .lc-remaining { font-size: 0.58rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--bone-45); margin-top: 0.7rem; }
-    .loot-card .lc-ctas { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1.1rem; }
+    .loot-card .lc-remaining { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-45); margin-top: 0.7rem; }
+    .loot-card .lc-ctas { display: flex; flex-direction: column; gap: 0.55rem; margin-top: 1.1rem; }
 
-    .nogl { position: fixed; inset: 0; z-index: 60; display: none; align-items: center; justify-content: center; text-align: center; padding: 2rem; background: rgba(14,10,22,0.95); }
+    .pass-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin-top: 0.8rem; }
+    .pass-grid .pg { border: 1.5px solid var(--ink); border-radius: 5px; padding: 0.6rem; background: rgba(255,250,235,0.6); }
+    .pass-grid .pg b { display: block; font-family: var(--disp); font-size: 1.35rem; color: var(--sindoor); }
+    .pass-grid .pg span { font-size: 0.56rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-45); }
+    .pass-sub { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-45); margin-top: 0.8rem; text-align: left; }
+    .pass-finds { max-height: 160px; overflow-y: auto; margin-top: 0.4rem; text-align: left; }
+    .pass-finds .pf { font-size: 0.7rem; color: var(--ink-70); padding: 0.25rem 0; border-bottom: 1px dashed var(--line); }
+    .pass-finds .pf i { font-style: normal; font-weight: 700; color: var(--mor); }
+
+    .nogl { position: fixed; inset: 0; z-index: 60; display: none; align-items: center; justify-content: center; text-align: center; padding: 2rem; background: var(--paper); }
     .nogl.on { display: flex; }
-    .nogl p { max-width: 34ch; font-size: 0.8rem; color: var(--bone-70); line-height: 1.9; }
+    .nogl p { max-width: 34ch; font-size: 0.8rem; color: var(--ink-70); line-height: 1.9; }
 
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.15s !important; }
+      .how-strip li, .area-banner { transform: none; }
     }
   </style>
 </head>
@@ -302,15 +343,15 @@
       <h1 class="world-title" id="mTitle">Loading this world…</h1>
       <p class="world-artist" id="mArtist"></p>
       <p class="world-bio" id="mBio"></p>
-      <p class="world-pitch" id="mPitch">Real loot is buried in this land. Follow the radar, dig it up, and keep what you find.</p>
+      <p class="world-pitch" id="mPitch">Asli khazana is buried in this land. Follow the radar, khodo, and keep what you find.</p>
       <div class="stat-row">
         <span class="chip" id="chipTracks" style="display:none"><span class="dot"></span><span id="chipTracksText"></span></span>
         <span class="chip"><span class="dot" style="background:var(--ice);box-shadow:0 0 8px var(--ice)"></span>a new echo hides here today</span>
         <span class="chip" id="chipLinks" style="display:none"><span class="dot" style="background:var(--coral);box-shadow:0 0 8px var(--coral)"></span><span id="chipLinksText"></span></span>
       </div>
       <div class="menu-ctas">
-        <button class="btn-primary" id="btnPlay">▶ &nbsp;Enter the world</button>
-        <button class="btn-ghost" id="btnPassport">🎒 &nbsp;Your passport</button>
+        <button class="btn-primary" id="btnPlay">▶ &nbsp;Chalo, walk in</button>
+        <button class="btn-ghost" id="btnPassport">🎒 &nbsp;Your fan passport</button>
       </div>
       <div class="race-card" id="raceCard" style="display:none">
         <p class="rc-eyebrow">🏁 Race received</p>
@@ -318,7 +359,7 @@
         <button class="btn-primary" id="btnRaceGo">Race their ghost</button>
       </div>
       <div class="fan-row">
-        <p class="fan-label">Your name in the world</p>
+        <p class="fan-label">Your naam in this scene</p>
         <input class="fan-input" id="fanName" maxlength="24" placeholder="Pick a name…" autocomplete="off" />
       </div>
       <div class="friend-box">
@@ -340,11 +381,11 @@
         <div class="nb-row" id="nbRow"></div>
       </div>
       <ul class="how-strip">
-        <li><span class="g">🎵</span><b>Listen</b><span>The land is the music. Loud parts rise into ridges, quiet parts sink into lakes, and you hear the song whose ground you stand on. Glowing markers cross the land every 30 seconds of the track.</span></li>
-        <li><span class="g">🚶</span><b>Wander</b><span>Walk or fly, any time. Left thumb moves, right thumb looks. WASD and mouse on desktop, F to fly.</span></li>
-        <li><span class="g">📡</span><b>Hunt</b><span>Loot is buried out there. A radar pops up when you are close. Dig where it pings fastest.</span></li>
-        <li><span class="g">👾</span><b>Dodge</b><span>The corner arenas have glooms. They bite. Getting caught just sends you back to the edge.</span></li>
-        <li><span class="g">🌍</span><b>Cross</b><span>Corners can link to other artists' worlds. Walk through and you are in their land, music and all.</span></li>
+        <li><span class="g">🎵</span><b>सुनो · listen</b><span>The land is the music. Loud parts rise into ridges, quiet parts sink into lakes, and you hear the song whose ground you stand on. Glowing markers cross the land every 30 seconds of the track.</span></li>
+        <li><span class="g">🚶</span><b>घूमो · wander</b><span>Walk or fly, any time. Left thumb moves, right thumb looks. WASD and mouse on desktop, F to fly.</span></li>
+        <li><span class="g">📡</span><b>खोदो · dig</b><span>Khazana is buried out there. A radar pops up when you are close. Dig where it pings fastest.</span></li>
+        <li><span class="g">👾</span><b>बचके · dodge</b><span>The corner arenas have glooms. They bite. Getting caught just sends you back to the edge.</span></li>
+        <li><span class="g">🌍</span><b>आगे · cross</b><span>Corners can link to other artists' worlds. Walk through and you are in their land, music and all.</span></li>
       </ul>
     </section>
   </main>
@@ -356,7 +397,7 @@
     <p>Everything you do here goes in your passport: worlds visited, chests found, pieces walked end to end, day streaks from the daily echo, even the glooms you manage to tame in the corner arenas. Snap a photo and the frame carries a link that drops your friends at the exact spot you stood. Start a race and a friend can run against your ghost.</p>
     <p>Corners of this world may lead into other artists' lands. Keep walking and you cross over, music and all, no loading screen.</p>
 
-    <h2>Questions, answered</h2>
+    <h2>Sawaal, <em>jawaab</em></h2>
     <details class="faq">
       <summary>Is this free?</summary>
       <p>Yes. No download, no account, no signup. Open the page and walk in. Your name and passport live only on your device.</p>
@@ -381,7 +422,7 @@
 
   <footer class="site-foot">
     <span id="footWorld">A Tuneland world</span>
-    <a href="https://midhrami.com/tuneland/" rel="noopener">Get your own world</a>
+    <a href="https://midhrami.com/tuneland/" rel="noopener">Start your own scene</a>
     <a href="/dashboard/">Artist dashboard</a>
   </footer>
 

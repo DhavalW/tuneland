@@ -6,37 +6,36 @@
   <title>Artist dashboard · Tuneland</title>
   <meta name="description" content="Set up your Tuneland world: name it, add your songs, bury loot for your fans, and link your corners to other artists' worlds." />
   <meta name="robots" content="noindex" />
-  <meta name="theme-color" content="#171226" />
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23171226'/%3E%3Crect x='4' y='18' width='6' height='6' fill='%23f2a33c'/%3E%3Crect x='13' y='12' width='6' height='6' fill='%2345b8a4'/%3E%3Crect x='22' y='20' width='6' height='6' fill='%23e2603f'/%3E%3C/svg%3E" />
+  <meta name="theme-color" content="#f0e3c6" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23f0e3c6'/%3E%3Crect x='4' y='18' width='6' height='6' fill='%23c73a2a'/%3E%3Crect x='13' y='12' width='6' height='6' fill='%2314655a'/%3E%3Crect x='22' y='20' width='6' height='6' fill='%23c2185b'/%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Yatra+One&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --void: #171226; --panel: #251f3a; --panel-2: #2f2647;
-      --acid: #f2a33c; --acid-dim: rgba(242,163,60,0.55);
-      --ice: #45b8a4; --coral: #e2603f; --bone: #f2ead8;
-      --bone-70: rgba(242,234,216,0.72); --bone-45: rgba(242,234,216,0.45);
-      --bone-25: rgba(242,234,216,0.25); --line: rgba(242,234,216,0.14);
-      --disp: 'Bricolage Grotesque', system-ui, sans-serif;
-      --mono: 'Space Mono', ui-monospace, monospace;
+      --void: #f0e3c6; --panel: #f6ecd4; --panel-2: #efe0be;
+      --acid: #c73a2a; --acid-dim: rgba(199,58,42,0.75);
+      --ice: #14655a; --coral: #c2185b; --bone: #2a1c12;
+      --bone-70: rgba(42,28,18,0.72); --bone-45: rgba(42,28,18,0.45);
+      --bone-25: rgba(42,28,18,0.25); --line: rgba(42,28,18,0.35);
+      --disp: 'Yatra One', system-ui, sans-serif;
+      --mono: 'Courier Prime', ui-monospace, monospace;
     }
     body {
-      background: radial-gradient(rgba(242,163,60,0.035) 1px, transparent 1.3px), linear-gradient(180deg, #171226 0%, #241a38 60%, #33234a 100%);
-      background-size: 26px 26px, auto;
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0.16 0 0 0 0 0.1 0 0 0 0 0.05 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E"), radial-gradient(120% 90% at 50% 0%, #f4e9d0 0%, #f0e3c6 55%, #e7d6ae 100%);
       background-attachment: fixed; color: var(--bone);
       font-family: var(--mono); line-height: 1.6; -webkit-font-smoothing: antialiased;
       padding-bottom: 4rem;
     }
     a { color: var(--ice); }
     button { font-family: inherit; color: inherit; background: none; border: none; cursor: pointer; }
-    input, select, textarea { font-family: inherit; font-size: 0.8rem; color: var(--bone); background: rgba(23,18,38,0.6); border: 1px solid var(--line); border-radius: 10px; padding: 0.6rem 0.8rem; outline: none; width: 100%; }
+    input, select, textarea { font-family: inherit; font-size: 0.8rem; color: var(--bone); background: rgba(255,250,235,0.6); border: 1px solid var(--line); border-radius: 10px; padding: 0.6rem 0.8rem; outline: none; width: 100%; }
     input:focus, select:focus, textarea:focus { border-color: var(--acid-dim); }
     .wrap { max-width: 760px; margin: 0 auto; padding: 2rem 1.25rem; }
     h1 { font-family: var(--disp); font-weight: 800; font-size: clamp(1.8rem, 6vw, 2.6rem); text-transform: uppercase; letter-spacing: -0.02em; }
     .sub { color: var(--bone-45); font-size: 0.74rem; margin-top: 0.4rem; }
-    .card { border: 1px solid var(--line); border-radius: 16px; background: rgba(37,31,58,0.55); padding: 1.2rem; margin-top: 1.2rem; }
+    .card { border: 1px solid var(--line); border-radius: 16px; background: rgba(246,236,212,0.55); padding: 1.2rem; margin-top: 1.2rem; }
     .card h2 { font-family: var(--disp); font-weight: 700; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 0.02em; margin-bottom: 0.3rem; }
     .card .hint { font-size: 0.68rem; color: var(--bone-45); margin-bottom: 0.9rem; line-height: 1.7; }
     .row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.6rem; }
@@ -49,7 +48,7 @@
       color: var(--void); background: var(--acid); margin-top: 0.9rem;
     }
     .btn:active { transform: scale(0.97); }
-    .btn.ghost { color: var(--bone-70); background: rgba(23,18,38,0.5); border: 1px solid var(--line); }
+    .btn.ghost { color: var(--bone-70); background: rgba(255,250,235,0.5); border: 1px solid var(--line); }
     .btn.danger { background: var(--coral); color: #fff; }
     .btn[disabled] { opacity: 0.4; pointer-events: none; }
     .status { font-size: 0.68rem; margin-top: 0.7rem; min-height: 1.2em; color: var(--ice); }
@@ -61,31 +60,31 @@
     th { font-size: 0.56rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--bone-45); }
     td button { color: var(--coral); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.1em; }
     .stat-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.5rem; margin-top: 0.4rem; }
-    .stat-tiles .st { border: 1px solid var(--line); border-radius: 10px; padding: 0.6rem; background: rgba(23,18,38,0.4); }
+    .stat-tiles .st { border: 1px solid var(--line); border-radius: 10px; padding: 0.6rem; background: rgba(255,250,235,0.4); }
     .stat-tiles .st b { display: block; font-family: var(--disp); font-size: 1.4rem; color: var(--acid); }
     .stat-tiles .st span { font-size: 0.56rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--bone-45); }
     .stat-bars { display: flex; align-items: flex-end; gap: 3px; height: 60px; margin-top: 0.8rem; }
-    .stat-bars i { flex: 1; background: rgba(242,163,60,0.55); border-radius: 3px 3px 0 0; min-height: 2px; }
+    .stat-bars i { flex: 1; background: rgba(199,58,42,0.55); border-radius: 3px 3px 0 0; min-height: 2px; }
     .warn {
-      border: 1px solid rgba(226,96,63,0.55); border-radius: 12px; background: rgba(226,96,63,0.09);
+      border: 1px solid rgba(194,24,91,0.55); border-radius: 12px; background: rgba(194,24,91,0.09);
       padding: 0.8rem 0.95rem; font-size: 0.68rem; color: var(--bone-70); line-height: 1.7; margin: 0.4rem 0 0.6rem;
     }
     .warn b { color: var(--coral); display: block; margin-bottom: 0.25rem; }
     .rights-row { display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.68rem; color: var(--bone-70); text-transform: none; letter-spacing: 0; margin: 0.4rem 0 0.2rem; line-height: 1.6; }
     .rights-row input { width: auto; margin-top: 0.15rem; accent-color: var(--coral); }
     .layout-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.6rem; margin-top: 0.3rem; }
-    .layout-opt { display: block; border: 1px solid var(--line); border-radius: 12px; padding: 0.8rem; background: rgba(23,18,38,0.4); cursor: pointer; text-transform: none; letter-spacing: 0; }
+    .layout-opt { display: block; border: 1px solid var(--line); border-radius: 12px; padding: 0.8rem; background: rgba(255,250,235,0.4); cursor: pointer; text-transform: none; letter-spacing: 0; }
     .layout-opt b { display: block; font-size: 0.72rem; color: var(--bone); margin: 0.2rem 0; }
     .layout-opt span { font-size: 0.64rem; color: var(--bone-45); line-height: 1.6; display: block; }
     .layout-opt input { width: auto; accent-color: var(--acid); }
-    .shape-row { display: flex; align-items: center; gap: 0.6rem; border: 1px solid var(--line); border-radius: 10px; padding: 0.5rem 0.7rem; margin-top: 0.4rem; background: rgba(23,18,38,0.4); }
+    .shape-row { display: flex; align-items: center; gap: 0.6rem; border: 1px solid var(--line); border-radius: 10px; padding: 0.5rem 0.7rem; margin-top: 0.4rem; background: rgba(255,250,235,0.4); }
     .shape-row .sr-ord { font-size: 0.62rem; color: var(--bone-45); width: 1.4rem; }
     .shape-row .sr-title { flex: 1; font-size: 0.72rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .shape-row input[type=range] { width: 90px; padding: 0; accent-color: var(--acid); }
     .shape-row button { font-size: 0.8rem; color: var(--bone-70); padding: 0.2rem 0.4rem; }
     .hue-dot { display: inline-block; width: 14px; height: 14px; border-radius: 4px; vertical-align: middle; }
-    #lootMap { width: 100%; max-width: 480px; aspect-ratio: 1; border: 1px solid var(--line); border-radius: 12px; touch-action: manipulation; cursor: crosshair; display: block; margin-top: 0.7rem; background: #16112a; }
-    .veil { position: fixed; inset: 0; z-index: 40; display: none; align-items: center; justify-content: center; text-align: center; background: rgba(14,10,22,0.92); padding: 2rem; }
+    #lootMap { width: 100%; max-width: 480px; aspect-ratio: 1; border: 1px solid var(--line); border-radius: 12px; touch-action: manipulation; cursor: crosshair; display: block; margin-top: 0.7rem; background: #f6ecd4; }
+    .veil { position: fixed; inset: 0; z-index: 40; display: none; align-items: center; justify-content: center; text-align: center; background: rgba(244,233,208,0.92); padding: 2rem; }
     .veil.on { display: flex; }
     .veil .box { max-width: 420px; }
     .veil h2 { font-family: var(--disp); font-weight: 800; font-size: 1.6rem; text-transform: uppercase; }
@@ -205,7 +204,7 @@
         <textarea id="npWords" rows="3" maxlength="8000" placeholder="Paste or write here. Long words swell the hills, sentence ends land as beats."></textarea>
         <button class="btn ghost" id="btnFromWords">Use the words</button>
         <label>Or draw your skyline</label>
-        <canvas id="npDraw" width="300" height="80" style="width:100%;max-width:480px;height:80px;border:1px solid var(--line);border-radius:10px;background:#16112a;touch-action:none;cursor:crosshair;display:block"></canvas>
+        <canvas id="npDraw" width="300" height="80" style="width:100%;max-width:480px;height:80px;border:1px solid var(--line);border-radius:10px;background:#f6ecd4;touch-action:none;cursor:crosshair;display:block"></canvas>
         <div class="row">
           <button class="btn ghost" id="btnDrawClear" style="flex:0 0 auto">Clear</button>
           <button class="btn" id="btnFromDraw" style="flex:0 0 auto">Use this skyline</button>
@@ -516,7 +515,7 @@
     }
     ctx.putImageData(img, 0, 0);
     // grid lines
-    ctx.strokeStyle = 'rgba(242,234,216,0.35)';
+    ctx.strokeStyle = 'rgba(42,28,18,0.35)';
     ctx.lineWidth = 1;
     for (const g of [96, 192]) {
       ctx.beginPath(); ctx.moveTo(g, 0); ctx.lineTo(g, 288); ctx.stroke();
@@ -524,11 +523,11 @@
     }
     // existing loot dots
     for (const l of adminLoot) {
-      ctx.fillStyle = '#f2a33c';
+      ctx.fillStyle = '#c73a2a';
       ctx.beginPath(); ctx.arc(l.x, l.z, 3, 0, 6.284); ctx.fill();
     }
     if (lootSpot) {
-      ctx.strokeStyle = '#e2603f'; ctx.lineWidth = 2;
+      ctx.strokeStyle = '#c2185b'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(lootSpot.x, lootSpot.z, 6, 0, 6.284); ctx.stroke();
     }
   }
@@ -910,8 +909,8 @@
   let npHeights = new Array(300).fill(0.35), npDrawing = false, npLastX = -1;
   function npRender() {
     npCtx.clearRect(0, 0, 300, 80);
-    npCtx.fillStyle = 'rgba(242,163,60,0.25)';
-    npCtx.strokeStyle = '#f2a33c';
+    npCtx.fillStyle = 'rgba(199,58,42,0.25)';
+    npCtx.strokeStyle = '#c73a2a';
     npCtx.lineWidth = 1.5;
     npCtx.beginPath();
     npCtx.moveTo(0, 80 - npHeights[0] * 76);
@@ -1179,7 +1178,7 @@
         const td3 = document.createElement('td');
         if (l.status === 'pending' && l.incoming) {
           const yes = document.createElement('button');
-          yes.textContent = 'approve'; yes.style.color = '#f2a33c';
+          yes.textContent = 'approve'; yes.style.color = '#c73a2a';
           yes.addEventListener('click', () => respond(l.id, true));
           const no = document.createElement('button');
           no.textContent = 'decline';

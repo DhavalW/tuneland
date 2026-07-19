@@ -1504,22 +1504,29 @@
     c.clearRect(0, 0, 216, 216);
     c.save();
     c.translate(R, R);
-    c.fillStyle = 'rgba(20,15,30,0.72)';
+    // a paper dial, printed in ink
+    c.fillStyle = 'rgba(240,227,198,0.94)';
     c.beginPath(); c.arc(0, 0, R - 4, 0, 6.284); c.fill();
-    c.strokeStyle = 'rgba(242,163,60,0.5)';
-    c.lineWidth = 2;
-    c.beginPath(); c.arc(0, 0, R - 4, 0, 6.284); c.stroke();
-    c.strokeStyle = 'rgba(242,163,60,0.18)';
-    for (const rr of [0.33, 0.66]) { c.beginPath(); c.arc(0, 0, (R - 4) * rr, 0, 6.284); c.stroke(); }
-    // sweep
+    c.strokeStyle = '#2a1c12';
+    c.lineWidth = 4;
+    c.beginPath(); c.arc(0, 0, R - 6, 0, 6.284); c.stroke();
+    c.lineWidth = 1.5;
+    c.setLineDash([5, 5]);
+    c.strokeStyle = 'rgba(42,28,18,0.5)';
+    for (const rr of [0.33, 0.66]) { c.beginPath(); c.arc(0, 0, (R - 6) * rr, 0, 6.284); c.stroke(); }
+    c.setLineDash([]);
+    // the sweep needle
     const grad = c.createConicGradient ? c.createConicGradient(sweep, 0, 0) : null;
     if (grad) {
-      grad.addColorStop(0, 'rgba(242,163,60,0.3)');
-      grad.addColorStop(0.12, 'rgba(242,163,60,0)');
-      grad.addColorStop(1, 'rgba(242,163,60,0)');
+      grad.addColorStop(0, 'rgba(199,58,42,0.4)');
+      grad.addColorStop(0.1, 'rgba(199,58,42,0)');
+      grad.addColorStop(1, 'rgba(199,58,42,0)');
       c.fillStyle = grad;
-      c.beginPath(); c.arc(0, 0, R - 6, 0, 6.284); c.fill();
+      c.beginPath(); c.arc(0, 0, R - 8, 0, 6.284); c.fill();
     }
+    c.strokeStyle = '#c73a2a';
+    c.lineWidth = 2.5;
+    c.beginPath(); c.moveTo(0, 0); c.lineTo(Math.cos(sweep) * (R - 10), Math.sin(sweep) * (R - 10)); c.stroke();
     // blips: rotate so "up" is where the camera looks
     for (const l of activeLootList()) {
       const dx = l.x + 0.5 - P.x, dz = l.z + 0.5 - P.z;
@@ -1529,12 +1536,13 @@
       const rr = (d / RADAR_R) * (R - 14);
       const bx = Math.sin(ang) * rr, by = -Math.cos(ang) * rr;
       const pulse = 0.6 + 0.4 * Math.sin(performance.now() / 180);
-      c.fillStyle = 'rgba(242,163,60,' + (0.5 + 0.5 * pulse) + ')';
-      c.beginPath(); c.arc(bx, by, 5 + hot * 3, 0, 6.284); c.fill();
+      c.fillStyle = 'rgba(199,58,42,' + (0.55 + 0.45 * pulse) + ')';
+      const bs = 5 + hot * 3;
+      c.fillRect(bx - bs / 2, by - bs / 2, bs, bs); // stamped square blips
     }
-    // center: you
-    c.fillStyle = 'rgba(69,184,164,0.9)';
-    c.beginPath(); c.arc(0, 0, 4, 0, 6.284); c.fill();
+    // center: you, a spot of peacock ink
+    c.fillStyle = '#14655a';
+    c.beginPath(); c.arc(0, 0, 4.5, 0, 6.284); c.fill();
     c.restore();
   }
 
@@ -1734,19 +1742,22 @@
       const cv = document.createElement('canvas');
       cv.width = w; cv.height = h + barH;
       const c = cv.getContext('2d');
-      c.fillStyle = '#171226';
+      c.fillStyle = '#f0e3c6';
       c.fillRect(0, 0, cv.width, cv.height);
       c.drawImage(glCv, 0, 0);
-      const pad = Math.round(w * 0.045), base = h + barH * 0.38;
-      c.fillStyle = '#f2ead8';
-      c.font = '700 ' + Math.round(barH * 0.3) + 'px "Space Mono", monospace';
-      c.fillText(W.cfg.name.toUpperCase().slice(0, 34), pad, base);
+      c.strokeStyle = '#2a1c12';
+      c.lineWidth = Math.max(2, Math.round(w * 0.006));
+      c.strokeRect(c.lineWidth / 2, c.lineWidth / 2, cv.width - c.lineWidth, cv.height - c.lineWidth);
+      const pad = Math.round(w * 0.045), base = h + barH * 0.4;
+      c.fillStyle = '#2a1c12';
+      c.font = Math.round(barH * 0.32) + 'px "Yatra One", "Courier Prime", sans-serif';
+      c.fillText(W.cfg.name.toUpperCase().slice(0, 30), pad, base);
       const sa = songAt(P.x, P.z);
-      c.fillStyle = 'rgba(242,234,216,0.65)';
-      c.font = Math.round(barH * 0.22) + 'px "Space Mono", monospace';
-      c.fillText(((sa && !sa.beyond) ? sa.song.title.slice(0, 26) + ' · ' + fmtTime(sa.t) + ' · ' : '') + AREA_NAMES[areaOf(P.x, P.z)], pad, base + barH * 0.28);
-      c.fillStyle = '#f2a33c';
-      c.fillText(spotLink().replace(/^https?:\/\//, ''), pad, base + barH * 0.54);
+      c.fillStyle = 'rgba(42,28,18,0.7)';
+      c.font = Math.round(barH * 0.2) + 'px "Courier Prime", monospace';
+      c.fillText(((sa && !sa.beyond) ? sa.song.title.slice(0, 26) + ' · ' + fmtTime(sa.t) + ' · ' : '') + AREA_NAMES[areaOf(P.x, P.z)], pad, base + barH * 0.26);
+      c.fillStyle = '#c73a2a';
+      c.fillText(spotLink().replace(/^https?:\/\//, ''), pad, base + barH * 0.5);
       openShot(cv.toDataURL('image/png'), '📷 Your shot', 'tuneland-shot.png', spotLink(),
         'Found this spot in ' + W.cfg.name + ' · walk in here: ');
     } catch (e) { showToast('the shot did not come out · try again', 1800); }
@@ -1984,37 +1995,47 @@
     const cv = document.createElement('canvas');
     cv.width = 900; cv.height = 1200;
     const c = cv.getContext('2d');
-    c.fillStyle = '#171226';
+    // a matchbox-label handbill: paper, double border, three inks
+    c.fillStyle = '#f0e3c6';
     c.fillRect(0, 0, 900, 1200);
-    for (let i = 0; i < 40; i++) { // scattered voxel confetti
-      const rr = seeded('card|' + fan.id)();
-      c.fillStyle = ['#f2a33c', '#45b8a4', '#e2603f'][i % 3] + '22';
-      c.fillRect((i * 137) % 860 + 20, (i * 271) % 1160 + 20, 18, 18);
+    c.strokeStyle = '#2a1c12';
+    c.lineWidth = 8;
+    c.strokeRect(20, 20, 860, 1160);
+    c.lineWidth = 2;
+    c.setLineDash([10, 8]);
+    c.strokeRect(38, 38, 824, 1124);
+    c.setLineDash([]);
+    const inks = ['#c73a2a', '#14655a', '#d98e04'];
+    for (let i = 0; i < 14; i++) { // print blocks along the foot
+      c.fillStyle = inks[i % 3];
+      c.fillRect(64 + i * 56, 1064, 40, 40);
     }
-    c.fillStyle = '#f2a33c';
-    c.font = '700 34px "Space Mono", monospace';
-    c.fillText('TUNELAND PASSPORT', 60, 110);
-    c.fillStyle = '#f2ead8';
-    c.font = '800 72px "Bricolage Grotesque", sans-serif';
-    c.fillText((fan.name || 'A wandering fan').slice(0, 20), 60, 210);
+    c.fillStyle = '#c73a2a';
+    c.font = '34px "Yatra One", sans-serif';
+    c.fillText('TUNELAND FAN PASSPORT', 64, 120);
+    c.fillStyle = 'rgba(199,58,42,0.35)';
+    c.font = '72px "Yatra One", sans-serif';
+    c.fillText((fan.name || 'A wandering fan').slice(0, 18).toUpperCase(), 68, 219); // off-register ink pass
+    c.fillStyle = '#2a1c12';
+    c.fillText((fan.name || 'A wandering fan').slice(0, 18).toUpperCase(), 64, 215);
     const rows = [
-      [st.worlds, 'worlds visited'], [st.finds, 'chests found'],
+      [st.worlds, 'worlds visited'], [st.finds, 'khazana dug up'],
       [st.walked, 'pieces walked end to end'], [st.crowns.length, 'worlds crowned'],
       [st.streak, 'day echo streak'], [st.tamed, 'glooms tamed'],
       [st.km.toFixed(1) + ' km', 'wandered on foot and wing']
     ];
     rows.forEach((r, i) => {
-      const y = 330 + i * 105;
-      c.fillStyle = '#f2a33c';
-      c.font = '700 58px "Space Mono", monospace';
-      c.fillText(String(r[0]), 60, y);
-      c.fillStyle = 'rgba(242,234,216,0.75)';
-      c.font = '26px "Space Mono", monospace';
-      c.fillText(r[1], 300, y - 8);
+      const y = 340 + i * 100;
+      c.fillStyle = i % 2 ? '#14655a' : '#c73a2a';
+      c.font = '58px "Yatra One", sans-serif';
+      c.fillText(String(r[0]), 64, y);
+      c.fillStyle = 'rgba(42,28,18,0.8)';
+      c.font = '26px "Courier Prime", monospace';
+      c.fillText(r[1], 300, y - 10);
     });
-    c.fillStyle = 'rgba(242,234,216,0.5)';
-    c.font = '24px "Space Mono", monospace';
-    c.fillText('wander the worlds · midhrami.com/tuneland', 60, 1140);
+    c.fillStyle = 'rgba(42,28,18,0.65)';
+    c.font = '24px "Courier Prime", monospace';
+    c.fillText('by the fans, for the fans · midhrami.com/tuneland', 64, 1150);
     openShot(cv.toDataURL('image/png'), '🎒 Your passport', 'tuneland-passport.png',
       'https://midhrami.com/tuneland/', 'My Tuneland passport so far: ');
   }
@@ -2500,14 +2521,13 @@
       const a = bump[((i % 96) + 96) % 96], b = bump[(((i + 1) % 96) + 96) % 96];
       return lerp(a, b, f * f * (3 - 2 * f)) * rough;
     }
-    const shade = (l, a) => {
-      const c = hsl2rgb(hue, 0.4, l);
-      return 'rgba(' + Math.round(c[0] * 255) + ',' + Math.round(c[1] * 255) + ',' + Math.round(c[2] * 255) + ',' + a + ')';
-    };
+    // three passes of ink, slightly off-register like a cheap screen print:
+    // the world's own hue first, then peacock, then the dark key ink
+    const hueC = hsl2rgb(hue, 0.55, 0.42);
     const layers = [
-      { off: 0, sp: 4, base: 0.52, amp: 0.2, col: shade(0.2, 0.85), eq: 0.03 },
-      { off: 40, sp: 9, base: 0.66, amp: 0.26, col: shade(0.13, 0.95), eq: 0.05 },
-      { off: 90, sp: 16, base: 0.8, amp: 0.3, col: shade(0.07, 1), eq: 0.08 }
+      { off: 0, sp: 4, base: 0.55, amp: 0.18, col: 'rgba(' + Math.round(hueC[0] * 255) + ',' + Math.round(hueC[1] * 255) + ',' + Math.round(hueC[2] * 255) + ',0.35)', eq: 0.03 },
+      { off: 40, sp: 9, base: 0.68, amp: 0.24, col: 'rgba(20,101,90,0.4)', eq: 0.05 },
+      { off: 90, sp: 16, base: 0.82, amp: 0.28, col: 'rgba(42,28,18,0.55)', eq: 0.08 }
     ];
     function draw(t) {
       ctx2.clearRect(0, 0, MW, MH);
@@ -2522,8 +2542,9 @@
           ctx2.fillRect(x, y, CELL - 1, MH - y);
         }
       }
-      ctx2.fillStyle = 'rgba(242,163,60,0.06)';
-      ctx2.fillRect(0, MH * 0.79, MW, 2);
+      // a sindoor rule across the print, like a folded crease
+      ctx2.fillStyle = 'rgba(199,58,42,0.35)';
+      for (let x = 0; x < MW; x += 12) ctx2.fillRect(x, MH * 0.81, 7, 2);
     }
     if (reduceMotion) { draw(0); return; }
     (function loop(t) {
@@ -2543,11 +2564,11 @@
       $('footWorld').textContent = cfg.name;
       // fan-facing pitch, in this world's own terms
       $('mEyebrow').textContent = cfg.tracks.length && cfg.artist
-        ? 'The music of ' + cfg.artist + ', as a place'
+        ? cfg.artist + ' ka scene, pressed into land'
         : 'A Tuneland world';
-      $('mPitch').textContent = 'Real loot is buried in this land' +
+      $('mPitch').textContent = 'Asli khazana is buried in this land' +
         (cfg.artist ? ': things ' + cfg.artist + ' left for the ones who come looking. ' : '. ') +
-        'Follow the radar, dig it up, and keep what you find.';
+        'Follow the radar, khodo, and keep what you find.';
       if (cfg.tracks.length) {
         $('chipTracks').style.display = '';
         $('chipTracksText').textContent = cfg.tracks.length === 1
