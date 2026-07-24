@@ -1,10 +1,18 @@
 // Tuneland artist world: static game + dashboard assets, one Worker API,
-// a D1 database (world state), an R2 bucket (the artist's songs) and a
-// presence Durable Object.
+// a D1 database (world state) and a presence Durable Object. Songs live in
+// the repo under public/media/ and are served as static assets, so a brand
+// new world needs no card on the Cloudflare account: everything here is
+// free-plan.
 //
 // Deployed via the "Deploy to Cloudflare" flow, which provisions the D1
-// database and R2 bucket automatically and writes their real IDs into the
-// artist's copy of this file. Nothing here needs hand-editing.
+// database automatically and writes its real ID into the artist's copy of
+// this file. Nothing here needs hand-editing.
+//
+// R2 is optional. If an artist turns it on in the dashboard (Settings ->
+// Storage), the dashboard commits an "r2_buckets" block into their copy of
+// this file:
+//   "r2_buckets": [{ "binding": "SONGS", "bucket_name": "tuneland-songs" }]
+// The Worker treats the SONGS binding as optional either way.
 //
 // NOTE for maintainers: artist copies keep their own version of this file
 // (the sync workflow never overwrites it), because it carries per-artist
@@ -23,12 +31,6 @@
       "binding": "DB",
       "database_name": "tuneland-db",
       "database_id": ""
-    }
-  ],
-  "r2_buckets": [
-    {
-      "binding": "SONGS",
-      "bucket_name": "tuneland-songs"
     }
   ],
   "durable_objects": {
