@@ -20,7 +20,7 @@ it registered first or fiftieth. There are no headliners here.
    It signs you into Cloudflare (make a free account if you don't have one),
    connects GitHub (same), copies this project into your GitHub, sets up the
    storage your world needs, and deploys. Accept the defaults and press
-   deploy.
+   deploy. Everything runs on the free plans: no card, no paid add-ons.
 
 2. **Claim your world.** When the deploy finishes you get a link like
    `https://tuneland-world.YOURNAME.workers.dev`. Open it, tap **Artist
@@ -30,7 +30,13 @@ it registered first or fiftieth. There are no headliners here.
    your world and everything it hosts and does are your responsibility, and
    Midhrami is indemnified and not responsible for it.
 
-3. **Make it yours.** In the dashboard: name your world, upload songs, color
+3. **Connect GitHub.** In the dashboard, press **Connect GitHub** and
+   approve the Tuneland app for your world's project (the one the deploy
+   button just made). One click, one screen. This is how the dashboard
+   saves your songs into your own project so your own Cloudflare can serve
+   them.
+
+4. **Make it yours.** In the dashboard: name your world, upload songs, color
    your areas, bury loot, then press **Join the Tuneland map** so fans and
    other artists can find you.
 
@@ -85,8 +91,9 @@ Full walkthrough with pictures: https://midhrami.com/tuneland/
 
 ## Your music, your rights
 
-Only upload music you have the rights to. Your world hosts its songs on
-your own Cloudflare account, in public. That means your own recordings, or
+Only upload music you have the rights to. Your world hosts its songs in
+your own GitHub project and serves them from your own Cloudflare account,
+in public. That means your own recordings, or
 recordings you have written permission to host and share. Covers, remixes
 with uncleared samples, and other people's tracks can get your Cloudflare
 and GitHub accounts suspended and can expose you to copyright claims. The
@@ -102,19 +109,28 @@ and Midhrami Studios is indemnified and not responsible for it.
 
 Your copy updates itself. Once a day it checks the main Tuneland project
 and, if the game got better, pulls the new code and redeploys your world
-automatically. Your settings, songs and loot are never touched: they live
-in your Cloudflare storage, not in the code.
+automatically. Your settings, songs and loot are never touched: settings
+and loot live in your Cloudflare storage, and your songs sit in their own
+folder the updater is told to leave alone.
 
 ## For developers
 
-- `public/` is the game and dashboard, served as static assets.
-- `src/worker.js` is the whole API: world config, loot and claims, song
-  streaming from R2, a presence Durable Object, admin and superuser auth.
-- `wrangler.jsonc` declares the D1 database, R2 bucket and Durable Object;
-  the Deploy to Cloudflare flow provisions them. The D1 schema creates
-  itself on first request.
-- `PLAN.md` describes the full architecture, including how corner links
-  and cross-world determinism work.
+- `public/` is the game and dashboard, served as static assets. An
+  artist's songs live in `public/media/` in their copy of this repo,
+  committed there by the dashboard through the Tuneland GitHub App, and
+  stream straight from Cloudflare's CDN.
+- `src/worker.js` is the whole API: world config, loot and claims, songs,
+  a presence Durable Object, admin and superuser auth. A track plays from
+  its repo asset, from R2 (only if the artist turned R2 on), or from a
+  pasted link, whichever its row in D1 points at.
+- `wrangler.jsonc` declares the D1 database and Durable Object; the Deploy
+  to Cloudflare flow provisions them. The D1 schema creates itself on
+  first request. R2 is optional and off by default, so a fresh world needs
+  no payment method on the Cloudflare account.
+- `.tuneland-keep` lists what the auto-updater must never overwrite in an
+  artist's copy (their `wrangler.jsonc`, workflows, and `public/media/`).
+- `PLAN.md` describes the full architecture, including how corner links,
+  cross-world determinism, and the GitHub App flow work.
 
-Local dev: `npx wrangler dev` (you will need to create a D1 database and
-R2 bucket once and put their IDs in `wrangler.jsonc`).
+Local dev: `npx wrangler dev` (you will need to create a D1 database once
+and put its ID in `wrangler.jsonc`).

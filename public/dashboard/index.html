@@ -167,17 +167,38 @@
 
       <div class="card">
         <h2>2 · Add your songs</h2>
-        <p class="hint">Upload an audio file (mp3, m4a, wav · up to 25 MB). It is stored on your own Cloudflare, played inside your world, and its loudness shapes your terrain: loud parts raise ridges, quiet parts sink into water valleys. While it uploads, your browser listens to it once to measure that shape.</p>
+        <p class="hint">Your songs live in your own project and play from your own Cloudflare. Each one's loudness shapes your terrain: loud parts raise ridges, quiet parts sink into water valleys. When you add a song, your browser listens to it once to measure that shape.</p>
         <div class="warn">
           <b>Only upload music you have the rights to.</b>
-          You are hosting these files on your own Cloudflare account, in public. That means your own songs, or songs you have written permission to host and share. Covers, remixes with uncleared samples, and other people's tracks can get your Cloudflare and GitHub accounts suspended and can expose you to copyright claims. You are responsible for what your world serves.
+          You are hosting these files on your own GitHub and Cloudflare accounts, in public. That means your own songs, or songs you have written permission to host and share. Covers, remixes with uncleared samples, and other people's tracks can get your Cloudflare and GitHub accounts suspended and can expose you to copyright claims. You are responsible for what your world serves.
         </div>
-        <label class="rights-row"><input type="checkbox" id="cRights" /> I wrote this song or hold the rights to host and share this recording</label>
-        <div class="row">
-          <div><label>Song title</label><input id="tTitle" maxlength="120" placeholder="Song title" /></div>
-          <div><label>Audio file</label><input id="tFile" type="file" accept="audio/*" /></div>
+        <div id="ghBox" style="display:none">
+          <p class="hint"><b>One step first:</b> let this dashboard save songs into your world's project. Press the button, approve the Tuneland app for your project (the one the deploy made), and you are back here in a few seconds.</p>
+          <button class="btn" id="btnGh">Connect GitHub</button>
+          <p class="status" id="ghStatus"></p>
         </div>
-        <button class="btn" id="btnUpload">Upload song</button>
+        <div id="uploadBox">
+          <label class="rights-row"><input type="checkbox" id="cRights" /> I wrote this song or hold the rights to host and share this recording</label>
+          <div class="row" style="margin-bottom:0.4rem">
+            <button class="btn ghost" id="tabFile" style="flex:1">Upload a file</button>
+            <button class="btn ghost" id="tabLink" style="flex:1">Paste a link</button>
+          </div>
+          <div id="boxFile">
+            <div class="row">
+              <div><label>Song title</label><input id="tTitle" maxlength="120" placeholder="Song title" /></div>
+              <div><label>Audio file (mp3, m4a, wav · up to 25 MB)</label><input id="tFile" type="file" accept="audio/*" /></div>
+            </div>
+            <button class="btn" id="btnUpload">Add song</button>
+          </div>
+          <div id="boxLink" style="display:none">
+            <p class="hint">Already host a song somewhere public? Paste a direct link to the audio file (ending in .mp3 or similar). A page on a streaming site will not work; a file on your own site or archive.org will.</p>
+            <div class="row">
+              <div><label>Song title</label><input id="tLinkTitle" maxlength="120" placeholder="Song title" /></div>
+              <div><label>Direct link to the file</label><input id="tLinkUrl" maxlength="500" placeholder="https://…/song.mp3" /></div>
+            </div>
+            <button class="btn" id="btnAddLink">Add song from link</button>
+          </div>
+        </div>
         <p class="status" id="trackStatus"></p>
         <table id="trackTable" style="display:none">
           <thead><tr><th>Title</th><th>Source</th><th></th></tr></thead>
@@ -301,6 +322,28 @@
           <thead><tr><th>Link</th><th>Status</th><th></th></tr></thead>
           <tbody></tbody>
         </table>
+      </div>
+
+      <div class="card">
+        <h2>Storage</h2>
+        <p class="hint" id="storHint">Your songs live in your world's own project, free, nothing to set up.</p>
+        <div id="storR2Offer" style="display:none">
+          <p class="hint">Building a very large catalog? You can move songs to Cloudflare R2 storage instead. Cloudflare asks for a card to switch R2 on (the first 10 GB stay free). Most worlds never need this.</p>
+          <button class="btn ghost" id="btnR2Show" style="flex:0 0 auto">Show me the R2 steps</button>
+          <div id="storR2Steps" style="display:none">
+            <ol class="hint">
+              <li>Open <a href="https://dash.cloudflare.com/?to=/:account/r2" target="_blank" rel="noopener">R2 in your Cloudflare dashboard</a> and switch it on (this is where Cloudflare asks for the card).</li>
+              <li>Press <b>Create bucket</b> and name it exactly <code>tuneland-songs</code>.</li>
+              <li>Come back here and press the button below. Your world redeploys itself with R2 attached (a few minutes).</li>
+            </ol>
+            <button class="btn" id="btnR2Enable">I made the bucket. Switch my world to R2</button>
+          </div>
+        </div>
+        <div id="storR2On" style="display:none">
+          <p class="hint">R2 is on. New uploads go to your R2 bucket.</p>
+          <button class="btn ghost" id="btnR2Move" style="display:none">Move my repo songs into R2</button>
+        </div>
+        <p class="status" id="storStatus"></p>
       </div>
 
     </div>
@@ -603,6 +646,208 @@
     });
   }
 
+  /* ── song storage: repo assets by default, R2 when the artist opts in ──
+     The audio bytes go straight from this browser to the artist's own
+     GitHub; the hub only hands out short-lived permission tokens. */
+  let storage = null;      // /api/admin/storage payload
+  let pendingUpload = null; // {file, title} waiting for GitHub connect
+  let ghReturn = null;      // {bindToken, nonce} from the install redirect
+  let ghPopup = false;      // this window is the connect popup, about to close
+
+  // the hub sends the install result back as #gh=<bindToken>&ghn=<nonce>,
+  // or #gherr=<message> when the install did not go through
+  (function readGhHash() {
+    const eM = /[#&]gherr=([^&]+)/.exec(location.hash || '');
+    if (eM) {
+      history.replaceState(null, '', location.pathname);
+      const say = () => setStatus('ghStatus', decodeURIComponent(eM[1]) + '. Press Connect GitHub to try again.', true);
+      if (window.opener) {
+        try { window.opener.postMessage({ tlGhErr: decodeURIComponent(eM[1]) }, location.origin); } catch (e) {}
+        document.body.textContent = 'That did not go through. Close this window and try again from your dashboard.';
+        ghPopup = true;
+        setTimeout(() => window.close(), 1500);
+      } else setTimeout(say, 800);
+      return;
+    }
+    const m = /[#&]gh=([\w-]+)&ghn=([\w-]+)/.exec(location.hash || '');
+    if (!m) return;
+    history.replaceState(null, '', location.pathname);
+    if (window.opener) {
+      // we are the connect popup: hand the result to the dashboard and go
+      try { window.opener.postMessage({ tlGh: { bindToken: m[1], nonce: m[2] } }, location.origin); } catch (e) {}
+      document.body.textContent = 'Connected. You can close this window.';
+      ghPopup = true;
+      setTimeout(() => window.close(), 400);
+    } else {
+      ghReturn = { bindToken: m[1], nonce: m[2] };
+    }
+  })();
+  window.addEventListener('message', (e) => {
+    if (e.origin !== location.origin || !e.data) return;
+    if (e.data.tlGh) confirmGh(e.data.tlGh.bindToken, e.data.tlGh.nonce);
+    if (e.data.tlGhErr) setStatus('ghStatus', e.data.tlGhErr + '. Press Connect GitHub to try again.', true);
+  });
+
+  function loadStorage() {
+    return api('/api/admin/storage').then((d) => {
+      if (!d.ok) return;
+      storage = d;
+      paintStorage();
+      if (ghReturn) { const g = ghReturn; ghReturn = null; confirmGh(g.bindToken, g.nonce); }
+    }).catch(() => {});
+  }
+  function paintStorage() {
+    if (!storage) return;
+    const gh = storage.github && storage.github.connected;
+    $('ghBox').style.display = gh || storage.r2 ? 'none' : '';
+    $('storR2Offer').style.display = storage.r2 ? 'none' : '';
+    $('storR2On').style.display = storage.r2 ? '' : 'none';
+    $('storHint').textContent = storage.r2
+      ? 'Your songs go to your Cloudflare R2 bucket.'
+      : gh
+        ? 'Your songs live in your world’s own project (' + storage.github.repo + '), free, nothing more to set up.'
+        : 'Your songs will live in your world’s own project. Connect GitHub in the songs card to switch this on.';
+    if (storage.r2) {
+      const anyAsset = (world.tracks || []).some((t) => t.url && t.url.indexOf('/media/') === 0);
+      $('btnR2Move').style.display = anyAsset ? '' : 'none';
+    }
+  }
+  function startGhConnect() {
+    setStatus('ghStatus', 'Getting things ready…');
+    api('/api/admin/github/start', { method: 'POST' }).then((d) => {
+      if (!d.ok) { setStatus('ghStatus', d.error || 'Could not start the GitHub connect.', true); return; }
+      const w = window.open(d.installUrl, 'tl-gh', 'width=980,height=780');
+      if (!w) { location.href = d.installUrl; return; }
+      setStatus('ghStatus', 'A GitHub window opened. Approve the Tuneland app there, for your world’s project only.');
+    }).catch(() => setStatus('ghStatus', 'Could not reach the world.', true));
+  }
+  function confirmGh(bindToken, nonce) {
+    setStatus('ghStatus', 'Confirming with the hub…');
+    api('/api/admin/github/confirm', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ bindToken, nonce })
+    }).then((d) => {
+      if (!d.ok) { setStatus('ghStatus', d.error || 'That did not confirm. Press Connect GitHub and try again.', true); return; }
+      setStatus('ghStatus', 'Connected to ' + d.repo + '.');
+      loadStorage().then(() => {
+        if (pendingUpload) {
+          const p = pendingUpload;
+          pendingUpload = null;
+          uploadViaGitHub(p.file, p.title);
+        }
+      });
+    }).catch(() => setStatus('ghStatus', 'Could not reach the world.', true));
+  }
+  $('btnGh').addEventListener('click', startGhConnect);
+
+  /* GitHub plumbing: short-lived token from the world, then the browser
+     talks to api.github.com itself */
+  function ghToken() {
+    return api('/api/admin/github/token').then((d) => {
+      if (!d.ok) throw new Error(d.error || 'could not get a GitHub token');
+      return d;
+    });
+  }
+  function ghJson(url, token, opts) {
+    opts = opts || {};
+    opts.headers = Object.assign({
+      authorization: 'Bearer ' + token,
+      accept: 'application/vnd.github+json'
+    }, opts.headers || {});
+    if (opts.body && typeof opts.body !== 'string') {
+      opts.body = JSON.stringify(opts.body);
+      opts.headers['content-type'] = 'application/json';
+    }
+    return fetch(url, opts).then((r) => r.json().catch(() => ({})).then((d) => {
+      if (!r.ok) throw new Error((d && d.message) || ('GitHub answered ' + r.status));
+      return d;
+    }));
+  }
+  function bytesToB64(bytes) {
+    let s = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) {
+      s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    }
+    return btoa(s);
+  }
+  /* One commit that adds and/or removes files in the world repo
+     (blob -> tree -> commit -> ref, so several songs land as one deploy) */
+  function ghCommit(gh, addFiles, delPaths, message) {
+    const base = 'https://api.github.com/repos/' + gh.repo;
+    const branch = gh.branch || 'main';
+    return ghJson(base + '/git/ref/heads/' + encodeURIComponent(branch), gh.token).then((ref) => {
+      const head = ref.object.sha;
+      return ghJson(base + '/git/commits/' + head, gh.token).then((parent) =>
+        Promise.all((addFiles || []).map((f) =>
+          ghJson(base + '/git/blobs', gh.token, {
+            method: 'POST', body: { content: bytesToB64(f.bytes), encoding: 'base64' }
+          }).then((b) => ({ path: f.path, mode: '100644', type: 'blob', sha: b.sha }))
+        )).then((adds) => {
+          const tree = adds.concat((delPaths || []).map((p) => ({ path: p, mode: '100644', type: 'blob', sha: null })));
+          return ghJson(base + '/git/trees', gh.token, {
+            method: 'POST', body: { base_tree: parent.tree.sha, tree }
+          });
+        }).then((t) => ghJson(base + '/git/commits', gh.token, {
+          method: 'POST', body: { message, tree: t.sha, parents: [head] }
+        })).then((c) => ghJson(base + '/git/refs/heads/' + encodeURIComponent(branch), gh.token, {
+          method: 'PATCH', body: { sha: c.sha }
+        }))
+      );
+    });
+  }
+  function extOf(file) {
+    const m = /\.(mp3|m4a|aac|ogg|opus|wav|flac|webm)$/i.exec(file.name || '');
+    if (m) return m[1].toLowerCase();
+    const map = {
+      'audio/mpeg': 'mp3', 'audio/mp4': 'm4a', 'audio/aac': 'aac', 'audio/ogg': 'ogg',
+      'audio/opus': 'opus', 'audio/wav': 'wav', 'audio/x-wav': 'wav', 'audio/flac': 'flac', 'audio/webm': 'webm'
+    };
+    return map[file.type] || 'mp3';
+  }
+  function randHexJs(n) {
+    const b = new Uint8Array(n);
+    crypto.getRandomValues(b);
+    let s = '';
+    for (const x of b) s += x.toString(16).padStart(2, '0');
+    return s;
+  }
+  /* the song is live once Workers Builds redeploys; watch for it quietly */
+  function pollAsset(path, title) {
+    let tries = 0;
+    const tick = () => {
+      tries++;
+      fetch(path, { method: 'HEAD', cache: 'no-store' }).then((r) => {
+        if (r.ok) { setStatus('trackStatus', '"' + title + '" is live in your world.'); return; }
+        if (tries < 40) setTimeout(tick, 15000);
+        else setStatus('trackStatus', '"' + title + '" is saved but taking long to go live. Check back in a few minutes.', true);
+      }).catch(() => { if (tries < 40) setTimeout(tick, 15000); });
+    };
+    setTimeout(tick, 20000);
+  }
+  function uploadViaGitHub(file, title) {
+    setStatus('trackStatus', 'Measuring the song’s shape…');
+    $('btnUpload').disabled = true;
+    file.arrayBuffer().then((ab) =>
+      Promise.all([analyzeAudio(ab), ghToken()]).then(([envData, gh]) => {
+        const fname = 'm' + randHexJs(8) + '.' + extOf(file);
+        setStatus('trackStatus', 'Saving "' + title + '" into your project…');
+        return ghCommit(gh, [{ path: 'public/media/' + fname, bytes: new Uint8Array(ab) }], null, 'Add song: ' + title)
+          .then(() => api('/api/admin/tracks', {
+            method: 'POST', headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ title, assetPath: '/media/' + fname, envelope: envData || undefined })
+          }))
+          .then((d) => {
+            if (!d.ok) throw new Error(d.error || 'the world did not record the song');
+            setStatus('trackStatus', 'Saved. "' + title + '" shapes your terrain now and the audio goes live in a few minutes. Keep adding songs.');
+            $('tTitle').value = ''; $('tFile').value = ''; $('cRights').checked = false;
+            refreshTracks();
+            pollAsset('/media/' + fname, title);
+          });
+      })
+    ).catch((e) => setStatus('trackStatus', e.message || 'That did not save.', true))
+      .finally(() => { $('btnUpload').disabled = false; });
+  }
+
   /* ── boot / claim flow ── */
   let adminLoot = [];
   function boot() {
@@ -663,6 +908,7 @@
     refreshLinks();
     loadDirectory();
     fillLootAreas();
+    loadStorage();
   }
 
   /* profile */
@@ -761,12 +1007,20 @@
     for (const t of tracks) {
       const tr = document.createElement('tr');
       const td1 = document.createElement('td'); td1.textContent = t.title;
-      const td2 = document.createElement('td'); td2.textContent = t.r2_key || (t.url && t.url.startsWith('/api/')) ? 'your Cloudflare' : 'external link';
+      const td2 = document.createElement('td');
+      td2.textContent = t.url && t.url.indexOf('/media/') === 0 ? 'your project'
+        : t.url && t.url.indexOf('/api/') === 0 ? 'your Cloudflare R2'
+          : t.url ? 'external link' : 'shape only (no audio)';
       const td3 = document.createElement('td');
       const del = document.createElement('button');
       del.textContent = 'remove';
       del.addEventListener('click', () => {
-        api('/api/admin/tracks/' + t.id, { method: 'DELETE' }).then(() => refreshTracks());
+        api('/api/admin/tracks/' + t.id, { method: 'DELETE' }).then((d) => {
+          // tidy the repo file too, when we can; an orphan is harmless
+          if (d && d.assetPath && storage && storage.github && storage.github.connected) {
+            return ghToken().then((gh) => ghCommit(gh, [], ['public' + d.assetPath], 'Remove song file')).catch(() => {});
+          }
+        }).then(() => refreshTracks());
       });
       td3.appendChild(del);
       tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
@@ -778,12 +1032,36 @@
       if (d && d.ok) { world.tracks = d.tracks; paintTracks(d.tracks); buildShapeList(); drawMap(); }
     });
   }
+  /* add-song tabs */
+  function pickTab(which) {
+    $('boxFile').style.display = which === 'file' ? '' : 'none';
+    $('boxLink').style.display = which === 'link' ? '' : 'none';
+    $('tabFile').classList.toggle('ghost', which !== 'file');
+    $('tabLink').classList.toggle('ghost', which !== 'link');
+  }
+  $('tabFile').addEventListener('click', () => pickTab('file'));
+  $('tabLink').addEventListener('click', () => pickTab('link'));
+  pickTab('file');
+
   $('btnUpload').addEventListener('click', () => {
     const file = $('tFile').files[0];
     const title = $('tTitle').value.trim() || (file ? file.name.replace(/\.[^.]+$/, '') : '');
     if (!$('cRights').checked) { setStatus('trackStatus', 'Tick the rights box first. Only upload music you have the rights to host.', true); return; }
     if (!file) { setStatus('trackStatus', 'Pick an audio file first.', true); return; }
     if (file.size > 25 * 1024 * 1024) { setStatus('trackStatus', 'That file is over 25 MB. Export a smaller one.', true); return; }
+    if (storage && storage.r2) { uploadToR2(file, title); return; }
+    if (!storage || !storage.github || !storage.github.connected) {
+      pendingUpload = { file, title };
+      $('ghBox').style.display = '';
+      setStatus('trackStatus', 'One step first: connect GitHub above. Your song continues on its own right after.');
+      startGhConnect();
+      return;
+    }
+    uploadViaGitHub(file, title);
+  });
+
+  /* R2 worlds keep the direct upload path */
+  function uploadToR2(file, title) {
     setStatus('trackStatus', 'Uploading…');
     $('btnUpload').disabled = true;
     file.arrayBuffer().then((ab) =>
@@ -806,6 +1084,102 @@
       })
     ).catch((e) => setStatus('trackStatus', e.message || 'Upload failed.', true))
       .finally(() => { $('btnUpload').disabled = false; });
+  }
+
+  /* song from a pasted link: the world probes the link, then relays the
+     audio once so the browser can measure the real shape */
+  $('btnAddLink').addEventListener('click', () => {
+    const linkUrl = $('tLinkUrl').value.trim();
+    const title = $('tLinkTitle').value.trim() || 'Untitled';
+    if (!$('cRights').checked) { setStatus('trackStatus', 'Tick the rights box first. Only add music you have the rights to share.', true); return; }
+    if (!/^https:\/\//.test(linkUrl)) { setStatus('trackStatus', 'Paste a full https:// link to the audio file.', true); return; }
+    setStatus('trackStatus', 'Checking the link…');
+    $('btnAddLink').disabled = true;
+    api('/api/admin/check-url', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: linkUrl })
+    }).then((d) => {
+      if (!d.ok) throw new Error(d.error || 'could not check that link');
+      if (!d.reachable) throw new Error('Could not reach that link. Check it opens in a private browser tab.');
+      if (d.contentType && /text\/html/.test(d.contentType)) {
+        throw new Error('That link is a web page, not an audio file. Use a direct file link (ending in .mp3 or similar).');
+      }
+      const seekNote = d.acceptRanges ? '' : ' That host may not let fans skip around in the song.';
+      setStatus('trackStatus', 'Listening to it once so the world can move with it…');
+      return fetch('/api/admin/fetch-audio?url=' + encodeURIComponent(linkUrl), {
+        headers: { authorization: 'Bearer ' + token }
+      }).then((r) => (r.ok ? r.arrayBuffer() : null)).catch(() => null)
+        .then((ab) => (ab ? analyzeAudio(ab) : null))
+        .then((envData) => api('/api/admin/tracks', {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ title, sourceUrl: linkUrl, envelope: envData || undefined })
+        }))
+        .then((d2) => {
+          if (!d2.ok) throw new Error(d2.error || 'the world did not record the song');
+          setStatus('trackStatus', 'Added. "' + title + '" plays from that link and shapes your terrain.' + seekNote);
+          $('tLinkTitle').value = ''; $('tLinkUrl').value = ''; $('cRights').checked = false;
+          refreshTracks();
+        });
+    }).catch((e) => setStatus('trackStatus', e.message || 'That did not save.', true))
+      .finally(() => { $('btnAddLink').disabled = false; });
+  });
+
+  /* ── storage card: the optional move to R2 ── */
+  $('btnR2Show').addEventListener('click', () => {
+    const el = $('storR2Steps');
+    el.style.display = el.style.display === 'none' ? '' : 'none';
+  });
+  $('btnR2Enable').addEventListener('click', () => {
+    if (!storage || !storage.github || !storage.github.connected) {
+      setStatus('storStatus', 'Connect GitHub first (in the songs card). Switching R2 on is a small change to your project.', true);
+      return;
+    }
+    setStatus('storStatus', 'Adding R2 to your world…');
+    $('btnR2Enable').disabled = true;
+    ghToken().then((gh) => {
+      const base = 'https://api.github.com/repos/' + gh.repo;
+      const branch = gh.branch || 'main';
+      return ghJson(base + '/contents/wrangler.jsonc?ref=' + encodeURIComponent(branch), gh.token).then((f) => {
+        const text = atob((f.content || '').replace(/\n/g, ''));
+        if (text.indexOf('"r2_buckets"') >= 0) return null;
+        const marker = '"durable_objects"';
+        if (text.indexOf(marker) < 0) throw new Error('your project’s wrangler.jsonc looks unusual. Ask for help on the hub');
+        const next = text.replace(marker,
+          '"r2_buckets": [\n    { "binding": "SONGS", "bucket_name": "tuneland-songs" }\n  ],\n  ' + marker);
+        return ghJson(base + '/contents/wrangler.jsonc', gh.token, {
+          method: 'PUT',
+          body: { message: 'Turn on R2 song storage', content: btoa(next), sha: f.sha, branch }
+        });
+      });
+    }).then(() => {
+      setStatus('storStatus', 'Done. Your world is redeploying itself with R2 attached. It takes a few minutes. This card updates when it lands.');
+      const watch = () => api('/api/admin/storage').then((d) => {
+        if (d.ok && d.r2) { storage = d; paintStorage(); setStatus('storStatus', 'R2 is on. New uploads go to your bucket.'); }
+        else setTimeout(watch, 20000);
+      }).catch(() => setTimeout(watch, 20000));
+      setTimeout(watch, 30000);
+    }).catch((e) => setStatus('storStatus', e.message || 'That did not work.', true))
+      .finally(() => { $('btnR2Enable').disabled = false; });
+  });
+  $('btnR2Move').addEventListener('click', () => {
+    const assetTracks = (world.tracks || []).filter((t) => t.url && t.url.indexOf('/media/') === 0);
+    if (!assetTracks.length) { setStatus('storStatus', 'No songs live in the project right now.'); return; }
+    setStatus('storStatus', 'Moving ' + assetTracks.length + ' song(s) into R2…');
+    $('btnR2Move').disabled = true;
+    const removed = [];
+    let chain = Promise.resolve();
+    for (const t of assetTracks) {
+      chain = chain.then(() => api('/api/admin/tracks/' + t.id + '/to-r2', { method: 'POST' }).then((d) => {
+        if (d.ok && d.removedAsset) removed.push('public' + d.removedAsset);
+      }));
+    }
+    chain.then(() => {
+      if (!removed.length) throw new Error('nothing moved. Try again in a minute');
+      return ghToken().then((gh) => ghCommit(gh, [], removed, 'Move songs to R2')).catch(() => {});
+    }).then(() => {
+      setStatus('storStatus', 'Moved. Your songs now stream from R2.');
+      refreshTracks();
+    }).catch((e) => setStatus('storStatus', e.message || 'That did not finish.', true))
+      .finally(() => { $('btnR2Move').disabled = false; });
   });
 
   /* ── land from anything: picture, words, drawn skyline ──
@@ -1205,7 +1579,7 @@
     }).then(() => refreshLinks());
   }
 
-  boot();
+  if (!ghPopup) boot();
 })();
 </script>
 </body>

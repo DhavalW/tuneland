@@ -1,0 +1,11 @@
+# Paths the Tuneland auto-updater must never overwrite or delete in an
+# artist's copy of this repo. The sync workflow reads THIS file from the
+# upstream repo, so new entries here reach every world on its next daily
+# sync without touching the (frozen) workflow file itself.
+#
+# rsync exclude patterns, one per line.
+.git
+.github/workflows
+wrangler.jsonc
+public/media
+.tuneland-keepalive

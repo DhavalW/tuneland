@@ -7,8 +7,10 @@
  *     authenticated),
  *   - the static game + dashboard assets for everything else.
  *
- * All state lives in D1 (auto-migrated on first use) and R2, never in the
- * repo, so the auto-update workflow can overwrite the code at any time.
+ * World state lives in D1 (auto-migrated on first use), songs in the
+ * repo's public/media/ (or R2 once an artist opts in). The auto-update
+ * workflow can overwrite the code at any time: everything it must not
+ * touch is listed in .tuneland-keep.
  */
 
 const SCHEMA = [
@@ -17,6 +19,7 @@ const SCHEMA = [
      id TEXT PRIMARY KEY,
      title TEXT NOT NULL,
      r2_key TEXT,
+     asset_path TEXT,
      source_url TEXT,
      envelope TEXT,
      ord INTEGER,
@@ -70,6 +73,7 @@ const SCHEMA = [
 const ALTERS = [
   `ALTER TABLE tracks ADD COLUMN ord INTEGER`,
   `ALTER TABLE tracks ADD COLUMN hue REAL`,
+  `ALTER TABLE tracks ADD COLUMN asset_path TEXT`,
   `ALTER TABLE loot ADD COLUMN starts_at INTEGER`,
   `ALTER TABLE loot ADD COLUMN ends_at INTEGER`,
   `ALTER TABLE loot ADD COLUMN email_mode TEXT`,
@@ -93,7 +97,7 @@ async function ensureSchema(env) {
 const enc = new TextEncoder();
 
 // bump when the artist agreement at midhrami.com/tuneland/agreement/ changes
-const TERMS_VERSION = 1;
+const TERMS_VERSION = 2;
 
 function json(data, status, extra) {
   return new Response(JSON.stringify(data), {
@@ -130,6 +134,11 @@ function b64uToBytes(str) {
   const u = new Uint8Array(b.length);
   for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i);
   return u;
+}
+function bytesToB64u(bytes) {
+  let s = '';
+  for (const b of bytes) s += String.fromCharCode(b);
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
 async function metaGet(env, k) {
@@ -233,7 +242,7 @@ async function worldConfig(env, ctx) {
   const worldId = await metaGet(env, 'world_id');
   const profile = await metaGetJson(env, 'profile', DEFAULT_PROFILE);
   const tracks = await env.DB.prepare(
-    'SELECT id, title, r2_key, source_url, envelope, hue FROM tracks ORDER BY (ord IS NULL), ord, created_at'
+    'SELECT id, title, r2_key, asset_path, source_url, envelope, hue FROM tracks ORDER BY (ord IS NULL), ord, created_at'
   ).all();
   const links = await metaGetJson(env, 'links_cache', { at: 0, links: [] });
   // refresh the link cache in the background when it is stale
@@ -254,7 +263,9 @@ async function worldConfig(env, ctx) {
     tracks: (tracks.results || []).map((t) => ({
       id: t.id,
       title: t.title,
-      url: t.r2_key ? '/api/songs/' + t.id : t.source_url,
+      // asset tracks stream straight from the CDN asset layer (the Worker
+      // is never invoked); R2 tracks stream through /api/songs/
+      url: t.asset_path || (t.r2_key ? '/api/songs/' + t.id : t.source_url),
       hue: typeof t.hue === 'number' ? t.hue : null,
       envelope: t.envelope ? JSON.parse(t.envelope) : null
     })),
@@ -440,13 +451,18 @@ async function handleApi(request, env, ctx) {
 
   if (path.startsWith('/api/songs/') && method === 'GET') {
     const id = decodeURIComponent(path.slice('/api/songs/'.length));
-    const track = await env.DB.prepare('SELECT r2_key, source_url FROM tracks WHERE id = ?').bind(id).first();
+    const track = await env.DB.prepare('SELECT r2_key, asset_path, source_url FROM tracks WHERE id = ?').bind(id).first();
     if (!track) return err('not found', 404);
+    if (track.asset_path) {
+      // compat shim: asset tracks are normally played via their /media/ URL
+      return Response.redirect(url.origin + track.asset_path, 302);
+    }
     if (!track.r2_key) {
       // silent terrain sources (picture/words/drawing) have no audio at all
       if (!track.source_url) return err('not found', 404);
       return Response.redirect(track.source_url, 302);
     }
+    if (!env.SONGS) return err('this world has no R2 storage', 503);
     const range = request.headers.get('range');
     let obj;
     if (range) {
@@ -561,7 +577,7 @@ async function handleAdmin(request, env, ctx, path, method, who, bodyBytes, url)
 
   if (path === '/api/admin/tracks' && method === 'GET') {
     const rows = await env.DB.prepare(
-      'SELECT id, title, r2_key, source_url, hue, envelope IS NOT NULL AS analyzed, created_at FROM tracks ORDER BY (ord IS NULL), ord, created_at'
+      'SELECT id, title, r2_key, asset_path, source_url, hue, envelope IS NOT NULL AS analyzed, created_at FROM tracks ORDER BY (ord IS NULL), ord, created_at'
     ).all();
     return json({ ok: true, tracks: rows.results || [] });
   }
@@ -578,7 +594,7 @@ async function handleAdmin(request, env, ctx, path, method, who, bodyBytes, url)
       // silent terrain source: creators who are not musicians send a shape
       // made in their browser (from a picture, words, or a drawn skyline);
       // nothing but the numbers is stored, and there is no audio to play
-      if (b.envelope && Array.isArray(b.envelope.env)) {
+      if (!b.assetPath && !b.sourceUrl && b.envelope && Array.isArray(b.envelope.env)) {
         const e = b.envelope;
         if (e.env.length < 4 || e.env.length > 600) return err('bad shape');
         const envelope = {
@@ -592,11 +608,32 @@ async function handleAdmin(request, env, ctx, path, method, who, bodyBytes, url)
         ).bind(id, str(b.title, 'Untitled', 120), JSON.stringify(envelope), Date.now(), h2, Date.now()).run();
         return json({ ok: true, id });
       }
+      // asset track: the dashboard already committed the audio file into
+      // this world's repo (public/media/...); we only record where it lives
+      if (typeof b.assetPath === 'string') {
+        if (!/^\/media\/[\w][\w.-]{0,80}\.(mp3|m4a|aac|ogg|opus|wav|flac|webm)$/i.test(b.assetPath)) {
+          return err('bad asset path');
+        }
+        const h3 = Number.isFinite(Number(b.hue)) ? clamp01(Number(b.hue)) : hue;
+        await env.DB.prepare(
+          'INSERT INTO tracks (id, title, asset_path, envelope, ord, hue, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+        ).bind(
+          id, str(b.title, 'Untitled', 120), b.assetPath,
+          validEnvelope(b.envelope), Date.now(), h3, Date.now()
+        ).run();
+        return json({ ok: true, id });
+      }
       if (!str(b.sourceUrl, '', 500)) return err('bad body');
       await env.DB.prepare(
-        'INSERT INTO tracks (id, title, source_url, ord, hue, created_at) VALUES (?, ?, ?, ?, ?, ?)'
-      ).bind(id, str(b.title, 'Untitled', 120), str(b.sourceUrl, '', 500), Date.now(), hue, Date.now()).run();
+        'INSERT INTO tracks (id, title, source_url, envelope, ord, hue, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      ).bind(
+        id, str(b.title, 'Untitled', 120), str(b.sourceUrl, '', 500),
+        validEnvelope(b.envelope), Date.now(), hue, Date.now()
+      ).run();
       return json({ ok: true, id });
+    }
+    if (!env.SONGS) {
+      return err('this world stores songs in its repo, not in R2; the dashboard uploads them via GitHub', 501);
     }
     if (bodyBytes.byteLength < 1000) return err('empty audio');
     if (bodyBytes.byteLength > 25 * 1024 * 1024) return err('audio too large (25 MB max)', 413);
@@ -651,10 +688,12 @@ async function handleAdmin(request, env, ctx, path, method, who, bodyBytes, url)
 
   const trackDelM = path.match(/^\/api\/admin\/tracks\/([\w-]+)$/);
   if (trackDelM && method === 'DELETE') {
-    const t = await env.DB.prepare('SELECT r2_key FROM tracks WHERE id = ?').bind(trackDelM[1]).first();
-    if (t && t.r2_key) { try { await env.SONGS.delete(t.r2_key); } catch (e) {} }
+    const t = await env.DB.prepare('SELECT r2_key, asset_path FROM tracks WHERE id = ?').bind(trackDelM[1]).first();
+    if (t && t.r2_key && env.SONGS) { try { await env.SONGS.delete(t.r2_key); } catch (e) {} }
     await env.DB.prepare('DELETE FROM tracks WHERE id = ?').bind(trackDelM[1]).run();
-    return json({ ok: true });
+    // asset files live in the repo; the dashboard removes them with its
+    // GitHub token (best effort — an orphaned file is harmless)
+    return json({ ok: true, assetPath: t && t.asset_path ? t.asset_path : null });
   }
 
   if (path === '/api/admin/loot' && method === 'GET') {
@@ -805,7 +844,163 @@ async function handleAdmin(request, env, ctx, path, method, who, bodyBytes, url)
     return json({ ok: true });
   }
 
+  /* ---- storage: repo assets (default), R2 (optional), links ---- */
+
+  if (path === '/api/admin/storage' && method === 'GET') {
+    const gh = await metaGetJson(env, 'github', null);
+    return json({
+      ok: true,
+      r2: !!env.SONGS,
+      github: { connected: !!(gh && gh.ghSecret), repo: gh && gh.repo ? gh.repo : null }
+    });
+  }
+
+  /* Connect this world's repo through the Tuneland GitHub App. The flow:
+   * start (here) -> GitHub install page -> hub callback verifies the
+   * install and issues a one-time bindToken -> dashboard hands it back
+   * (confirm, here) -> hub binds installation<->world and returns a
+   * ghSecret this Worker stores. Tokens are then minted on demand and the
+   * audio bytes go browser -> GitHub directly; the hub never sees them. */
+
+  if (path === '/api/admin/github/start' && method === 'POST') {
+    const worldId = await metaGet(env, 'world_id');
+    if (!worldId) return err('claim the world first');
+    const app = await hubGithubApp(env);
+    if (!app || !app.slug) {
+      return err('song uploads are not switched on at the hub yet. Try again later', 503);
+    }
+    const nonce = randHex(16);
+    await metaSet(env, 'gh_nonce', JSON.stringify({ nonce, at: Date.now() }));
+    const state = bytesToB64u(enc.encode(JSON.stringify({ o: url.origin, n: nonce })));
+    return json({
+      ok: true,
+      installUrl: 'https://github.com/apps/' + app.slug + '/installations/new?state=' + state
+    });
+  }
+
+  if (path === '/api/admin/github/confirm' && method === 'POST') {
+    const b = parseJsonBody(bodyBytes);
+    const worldId = await metaGet(env, 'world_id');
+    if (!worldId) return err('claim the world first');
+    if (!b || typeof b.bindToken !== 'string' || typeof b.nonce !== 'string') return err('bad body');
+    const pending = await metaGetJson(env, 'gh_nonce', null);
+    if (!pending || pending.nonce !== b.nonce || Date.now() - pending.at > 15 * 60e3) {
+      return err('this connect attempt expired. Press Connect GitHub again', 410);
+    }
+    const { status, data } = await registryPost(env, '/github/bind', {
+      worldId, origin: url.origin, bindToken: b.bindToken
+    });
+    if (status !== 200 || !data || !data.ok) {
+      return err(data && data.error ? data.error : 'the hub could not confirm the GitHub install', 502);
+    }
+    await metaSet(env, 'github', JSON.stringify({ repo: data.repo, ghSecret: data.ghSecret }));
+    await env.DB.prepare('DELETE FROM meta WHERE k = ?').bind('gh_nonce').run();
+    return json({ ok: true, repo: data.repo });
+  }
+
+  if (path === '/api/admin/github/token' && method === 'GET') {
+    const worldId = await metaGet(env, 'world_id');
+    const gh = await metaGetJson(env, 'github', null);
+    if (!worldId || !gh || !gh.ghSecret) return err('connect GitHub first', 412);
+    const { status, data } = await registryPost(env, '/github/token', {
+      worldId, ghSecret: gh.ghSecret
+    });
+    if (status !== 200 || !data || !data.ok) {
+      return err(data && data.error ? data.error : 'the hub could not mint a GitHub token', 502);
+    }
+    return json({ ok: true, token: data.token, repo: data.repo, branch: data.branch, expiresAt: data.expiresAt });
+  }
+
+  /* Move one repo-asset track into R2 (after the artist switches R2 on).
+   * The repo file is removed afterwards by the dashboard's commit. */
+  const toR2M = path.match(/^\/api\/admin\/tracks\/([\w-]+)\/to-r2$/);
+  if (toR2M && method === 'POST') {
+    if (!env.SONGS) return err('R2 is not enabled on this world', 501);
+    const t = await env.DB.prepare('SELECT id, asset_path FROM tracks WHERE id = ?').bind(toR2M[1]).first();
+    if (!t) return err('no such track', 404);
+    if (!t.asset_path) return err('this track does not live in the repo');
+    const res = await env.ASSETS.fetch(new Request(url.origin + t.asset_path));
+    if (!res.ok) return err('could not read the song from the deployed assets', 502);
+    const bytes = await res.arrayBuffer();
+    const key = 'songs/' + t.id;
+    await env.SONGS.put(key, bytes, {
+      httpMetadata: { contentType: res.headers.get('content-type') || 'audio/mpeg' }
+    });
+    await env.DB.prepare('UPDATE tracks SET r2_key = ?, asset_path = NULL WHERE id = ?').bind(key, t.id).run();
+    return json({ ok: true, removedAsset: t.asset_path });
+  }
+
+  /* Link-mode helpers: probe a pasted URL, and proxy its audio so the
+   * dashboard can measure a real envelope despite cross-origin limits. */
+
+  if (path === '/api/admin/check-url' && method === 'POST') {
+    const b = parseJsonBody(bodyBytes);
+    const target = b && safeAudioUrl(b.url);
+    if (!target) return err('that does not look like an https link');
+    try {
+      let r = await fetchTimeout(target, { method: 'HEAD', redirect: 'follow' }, 8000);
+      if (!r.ok || !r.headers.get('content-type')) {
+        r = await fetchTimeout(target, { headers: { range: 'bytes=0-1' }, redirect: 'follow' }, 8000);
+      }
+      return json({
+        ok: true,
+        status: r.status,
+        reachable: r.ok,
+        contentType: r.headers.get('content-type') || null,
+        size: Number(r.headers.get('content-length')) || null,
+        acceptRanges: r.status === 206 || (r.headers.get('accept-ranges') || '').includes('bytes')
+      });
+    } catch (e) {
+      return json({ ok: true, reachable: false, status: 0 });
+    }
+  }
+
+  if (path === '/api/admin/fetch-audio' && method === 'GET') {
+    const target = safeAudioUrl(url.searchParams.get('url'));
+    if (!target) return err('that does not look like an https link');
+    let r;
+    try {
+      r = await fetchTimeout(target, { redirect: 'follow' }, 20000);
+    } catch (e) {
+      return err('could not fetch that link', 502);
+    }
+    if (!r.ok || !r.body) return err('that link answered ' + r.status, 502);
+    const len = Number(r.headers.get('content-length'));
+    if (len && len > 25 * 1024 * 1024) return err('that file is over 25 MB', 413);
+    return new Response(r.body, {
+      headers: Object.assign({
+        'content-type': r.headers.get('content-type') || 'audio/mpeg',
+        'cache-control': 'no-store'
+      }, corsHeaders())
+    });
+  }
+
   return err('not found', 404);
+}
+
+function safeAudioUrl(v) {
+  if (typeof v !== 'string' || v.length > 500) return null;
+  try {
+    const u = new URL(v);
+    if (u.protocol !== 'https:' || u.port && u.port !== '443') return null;
+    return u.href;
+  } catch (e) { return null; }
+}
+
+/* The hub's public GitHub App config (slug), cached in D1 for an hour. */
+async function hubGithubApp(env) {
+  const cached = await metaGetJson(env, 'gh_app', null);
+  if (cached && Date.now() - cached.at < 3600e3) return cached.app;
+  try {
+    const r = await fetchTimeout(env.REGISTRY_BASE + '/github/app', {}, 6000);
+    if (r.ok) {
+      const d = await r.json();
+      const app = d && d.ok && typeof d.slug === 'string' ? { slug: d.slug } : null;
+      await metaSet(env, 'gh_app', JSON.stringify({ app, at: Date.now() }));
+      return app;
+    }
+  } catch (e) { /* hub unreachable: fall through to stale cache */ }
+  return cached ? cached.app : null;
 }
 
 function str(v, d, max) {
@@ -814,6 +1009,17 @@ function str(v, d, max) {
   return s || d;
 }
 function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+
+/* Normalize a browser-measured envelope to its stored JSON, or null if the
+ * body carried none. The stored envelope is authoritative for terrain. */
+function validEnvelope(e) {
+  if (!e || !Array.isArray(e.env) || e.env.length < 4 || e.env.length > 600) return null;
+  return JSON.stringify({
+    dur: Math.min(600, Math.max(1, Number(e.dur) || 30)),
+    env: e.env.slice(0, 600).map((v) => clamp01(Number(v) || 0)),
+    beats: Array.isArray(e.beats) ? e.beats.slice(0, 400).map((t) => Math.max(0, Number(t) || 0)) : []
+  });
+}
 
 /* ── presence Durable Object ──
  * One hub per area key. In-memory only, hibernating WebSockets, tiny
